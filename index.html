@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Purchasing & Billing</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="stylesheet" href="css/styles.css?v=20">
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- GridStack CSS & JS -->
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack-all.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- Sidebar -->
+        <aside class="sidebar glass-panel">
+            <div class="sidebar-header">
+                <div class="logo-box">
+                    <i data-lucide="building-2"></i>
+                </div>
+                <h2>CorpBuy</h2>
+            </div>
+
+            <div class="user-profile">
+                <div class="avatar">
+                    <img src="https://ui-avatars.com/api/?name=Ali+Veli&background=random" alt="Kullanıcı">
+                </div>
+                <div class="user-info">
+                    <p class="user-name">Ali Yılmaz</p>
+                    <p class="user-role">Sistem Yöneticisi</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-view="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#requests" class="nav-item" data-view="requests">
+                    <i data-lucide="file-text"></i>
+                    <span>Taleplerim</span>
+                </a>
+                <a href="#approvals" class="nav-item badge-nav" data-view="approvals">
+                    <i data-lucide="check-square"></i>
+                    <span>Onay Bekleyenler</span>
+                    <span class="badge" id="nav-approval-count">3</span>
+                </a>
+                <a href="#orders" class="nav-item" data-view="orders">
+                    <i data-lucide="shopping-cart"></i>
+                    <span>Siparişler (PO)</span>
+                </a>
+                <a href="#receiving" class="nav-item" data-view="receiving">
+                    <i data-lucide="package-check"></i>
+                    <span>Mal Kabul</span>
+                </a>
+                <a href="#invoices" class="nav-item" data-view="invoices">
+                    <i data-lucide="receipt"></i>
+                    <span>Faturalar</span>
+                </a>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <a href="#settings" class="nav-item" data-view="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Ayarlar</span>
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="top-header glass-panel">
+                <div class="header-search">
+                    <i data-lucide="search"></i>
+                    <input type="text" placeholder="Talep No, Sipariş veya Tedarikçi ara...">
+                </div>
+                <div class="header-actions">
+                    <div class="dropdown-wrapper">
+                        <button class="icon-btn" title="Bildirimler" onclick="app.toggleNotifications(event)">
+                            <i data-lucide="bell"></i>
+                            <span class="notification-dot"></span>
+                        </button>
+                        <div class="notifications-dropdown" id="notificationsDropdown">
+                            <div class="dropdown-header">
+                                <h3>Son Bildirimler</h3>
+                                <span class="badge">2 Yeni</span>
+                            </div>
+                            <div class="dropdown-body">
+                                <div class="notification-item unread" onclick="app.navigateTo('approvals')">
+                                    <div class="icon-circle blue-bg"><i data-lucide="file-text"></i></div>
+                                    <div class="notif-content">
+                                        <p><strong>PR-2026-012</strong> onay bekliyor.</p>
+                                        <span class="notif-time">Az önce</span>
+                                    </div>
+                                </div>
+                                <div class="notification-item unread" onclick="app.navigateTo('requests')">
+                                    <div class="icon-circle green-bg"><i data-lucide="check"></i></div>
+                                    <div class="notif-content">
+                                        <p>Sn. Ahmet Kaya talebinizi onayladı.</p>
+                                        <span class="notif-time">1 saat önce</span>
+                                    </div>
+                                </div>
+                                <div class="notification-item" onclick="app.navigateTo('receiving')">
+                                    <div class="icon-circle orange-bg"><i data-lucide="truck"></i></div>
+                                    <div class="notif-content">
+                                        <p><strong>Depo:</strong> Ofis ürünleri teslim alındı.</p>
+                                        <span class="notif-time">Dün</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="dropdown-footer" style="padding: 12px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+                                <button class="text-btn" style="font-size: 0.85rem;" onclick="app.clearNotifications()">Tümünü Temizle</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="primary-btn" onclick="app.openNewRequestModal()">
+                        <i data-lucide="plus"></i>
+                        Yeni Talep
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dynamic Views Container -->
+            <div class="view-container" id="view-container">
+                <!-- Dashboard View (Default) -->
+                <section id="dashboard" class="view active">
+                    <div class="view-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h1 class="view-title">Sisteme Hoş Geldiniz</h1>
+                            <p class="view-subtitle">Satın alma süreçlerinizi ve anlık durumu buradan takip edebilirsiniz.</p>
+                        </div>
+                        <button class="outline-btn" id="btn-edit-dashboard" onclick="app.toggleDashboardEditMode()">
+                            <i data-lucide="layout"></i> Görünümü Düzenle
+                        </button>
+                    </div>
+
+                    <div class="grid-stack" id="dashboard-grid">
+                        
+                        <!-- 1. AKTIF TALEPLER -->
+                        <div class="grid-stack-item" gs-id="stat-all" gs-w="3" gs-h="1">
+                            <div class="grid-stack-item-content">
+                                <div class="stat-card glass-panel" id="card-all" onclick="app.filterByStatus('all')" style="height:100%; margin:0;">
+                                    <div class="stat-icon purple-bg"><i data-lucide="file-output"></i></div>
+                                    <div class="stat-data">
+                                        <p class="stat-label">Aktif Talepler</p>
+                                        <h3 class="stat-value" id="stat-active-requests">12</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. ONAY BEKLEYEN -->
+                        <div class="grid-stack-item" gs-id="stat-pending" gs-w="3" gs-h="1">
+                            <div class="grid-stack-item-content">
+                                <div class="stat-card glass-panel" id="card-pending" onclick="app.filterByStatus('pending')" style="height:100%; margin:0;">
+                                    <div class="stat-icon orange-bg"><i data-lucide="clock"></i></div>
+                                    <div class="stat-data">
+                                        <p class="stat-label">Onay Bekleyen</p>
+                                        <h3 class="stat-value" id="stat-pending-approvals">5</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. BEKLEYEN SİPARİŞLER -->
+                        <div class="grid-stack-item" gs-id="stat-po" gs-w="3" gs-h="1">
+                            <div class="grid-stack-item-content">
+                                <div class="stat-card glass-panel" id="card-po" onclick="app.filterByStatus('po')" style="height:100%; margin:0;">
+                                    <div class="stat-icon blue-bg"><i data-lucide="truck"></i></div>
+                                    <div class="stat-data">
+                                        <p class="stat-label">Bekleyen Siparişler</p>
+                                        <h3 class="stat-value" id="stat-active-pos">8</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. ÖDEMEYE HAZIR -->
+                        <div class="grid-stack-item" gs-id="stat-approved" gs-w="3" gs-h="1">
+                            <div class="grid-stack-item-content">
+                                <div class="stat-card glass-panel" id="card-approved" onclick="app.filterByStatus('approved')" style="height:100%; margin:0;">
+                                    <div class="stat-icon green-bg"><i data-lucide="banknote"></i></div>
+                                    <div class="stat-data">
+                                        <p class="stat-label">Ödemeye Hazır</p>
+                                        <h3 class="stat-value" id="stat-ready-invoices">3</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. PIE CHART -->
+                        <div class="grid-stack-item" gs-id="content-chart" gs-w="5" gs-h="3" gs-y="1" gs-x="0">
+                            <div class="grid-stack-item-content">
+                                <div class="content-card glass-panel full-height-card">
+                                    <h3 style="margin-bottom: 32px; font-weight: 600; color: var(--text-main); text-align: center; font-size: 1.3rem;">Süreç Dağılımı Özet Tablosu</h3>
+                                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 32px;">
+                                        <div id="pie-chart" style="width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.05); box-shadow: 0 10px 25px rgba(0,0,0,0.2); position: relative; transition: all 0.5s ease; flex-shrink: 0;">
+                                            <div style="width: 130px; height: 130px; background: var(--surface-bg); border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: inset 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; justify-content: center; flex-direction: column; z-index: 2;">
+                                                <span id="pie-total-text" style="font-size: 1.8rem; font-weight: 700; color: var(--text-main);">0</span>
+                                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; text-align:center;">Aktif İşlem</span>
+                                            </div>
+                                        </div>
+                                        <div id="pie-legend" style="display: flex; flex-direction: column; gap: 12px; min-width: 180px;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 6. TABLE -->
+                        <div class="grid-stack-item" gs-id="content-table" gs-w="7" gs-h="3" gs-y="1" gs-x="5">
+                            <div class="grid-stack-item-content">
+                                <div class="content-card glass-panel full-height-card" style="display: flex; flex-direction: column;">
+                                    <div class="card-header">
+                                        <h3 id="table-title">Son Talepler</h3>
+                                        <button class="text-btn" onclick="app.filterByStatus('all')">Tümünü Gör</button>
+                                    </div>
+                                    <div class="table-responsive" style="flex-grow: 1; overflow-y: auto;">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Talep No</th>
+                                                    <th>Açıklama</th>
+                                                    <th>Tutar</th>
+                                                    <th>Durum</th>
+                                                    <th>Tarih</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="recent-requests-body">
+                                                <!-- Data injected by JS -->
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 7. QUICK ACTIONS -->
+                        <div class="grid-stack-item" gs-id="content-actions" gs-w="12" gs-h="2" gs-y="4" gs-x="0">
+                            <div class="grid-stack-item-content">
+                                <div class="content-card glass-panel full-height-card">
+                                    <div class="card-header" style="margin-bottom:16px;">
+                                        <h3>Hızlı İşlemler</h3>
+                                    </div>
+                                    <div class="quick-actions" style="display: flex; gap: 16px;">
+                                        <button class="action-card" onclick="app.switchView('requests')" style="flex:1;">
+                                            <div class="icon-wrapper"><i data-lucide="edit-3"></i></div>
+                                            <span>Taslak Talepler</span>
+                                        </button>
+                                        <button class="action-card" onclick="app.switchView('approvals')" style="flex:1;">
+                                            <div class="icon-wrapper"><i data-lucide="check-circle"></i></div>
+                                            <span>Toplu Onay</span>
+                                        </button>
+                                        <button class="action-card" onclick="app.switchView('receiving')" style="flex:1;">
+                                            <div class="icon-wrapper"><i data-lucide="box"></i></div>
+                                            <span>Teslimat Gir</span>
+                                        </button>
+                                        <button class="action-card" onclick="app.switchView('invoices')" style="flex:1;">
+                                            <div class="icon-wrapper"><i data-lucide="file-plus"></i></div>
+                                            <span>Fatura Eşleştir</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- Requests View -->
+                <section id="requests" class="view">
+                    <div class="view-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h1 class="view-title">Satın Alma Taleplerim</h1>
+                            <p class="view-subtitle">Açtığınız talepleri izleyin, durumlarına göre filtreleyin.</p>
+                        </div>
+                        <button class="primary-btn" onclick="app.openNewRequestModal()">
+                            <i data-lucide="plus"></i>
+                            Yeni Talep
+                        </button>
+                    </div>
+                    <div class="content-card glass-panel" style="min-height: 500px;">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <div class="tabs" style="display: flex; gap: 24px;">
+                                <button class="tab-btn active" onclick="app.filterRequestsPage('all', this)">Tümü</button>
+                                <button class="tab-btn" onclick="app.filterRequestsPage('pending', this)">Onay Bekleyenler</button>
+                                <button class="tab-btn" onclick="app.filterRequestsPage('approved', this)">Satın Almada</button>
+                                <button class="tab-btn" onclick="app.filterRequestsPage('po', this)">Sipariş Geçilenler</button>
+                                <button class="tab-btn" onclick="app.filterRequestsPage('rejected', this)">Reddedilenler</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Açıklama</th>
+                                        <th>Tutar</th>
+                                        <th>Durum</th>
+                                        <th>Tarih</th>
+                                        <th style="text-align: right;">Aksiyon</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="my-requests-body">
+                                    <!-- DB'den dinamik olarak app.js tarafindan doldurulur -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Approvals View -->
+                <section id="approvals" class="view">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Onay Bekleyen İşlemler</h1>
+                            <p class="view-subtitle">Departmanınızdan gelen veya yetkinizdeki satın alma taleplerini inceleyip onaylayın.</p>
+                        </div>
+                    </div>
+                    <div class="content-card glass-panel" style="min-height: 500px;">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <h3 style="font-weight: 600; color: var(--warning);">İşlem Bekleyenler Listesi</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Açıklama</th>
+                                        <th>Tutar</th>
+                                        <th>Tarih</th>
+                                        <th style="text-align: right;">Aksiyon (Onay/Red)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="approvals-body">
+                                    <!-- DB'den dinamik olarak app.js tarafindan doldurulur -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Orders View -->
+                <section id="orders" class="view">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Sipariş Yönetimi (PO)</h1>
+                            <p class="view-subtitle">Satın almaya iletilen taleplerin tekliflerini girin ve sipariş emirlerini (PO) oluşturun.</p>
+                        </div>
+                    </div>
+                    <div class="content-card glass-panel" style="min-height: 500px;">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <h3 style="font-weight: 600; color: var(--info);">Piyasa Araştırması ve Sipariş</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Açıklama / Proje</th>
+                                        <th>Güncel Tutar</th>
+                                        <th>Durum</th>
+                                        <th style="text-align: right;">Aksiyon</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-body">
+                                    <!-- DB'den dinamik olarak app.js tarafindan doldurulur -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Receiving View -->
+                <section id="receiving" class="view">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Depo ve Mal Kabul</h1>
+                            <p class="view-subtitle">Tedarikçiden gelen fiziksel teslimatları sisteme girin ve siparişleri kapatın.</p>
+                        </div>
+                    </div>
+                    <div class="content-card glass-panel" style="min-height: 500px;">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <h3 style="font-weight: 600; color: #a78bfa;">Yolda Olan / Beklenen Siparişler</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Açıklama / Ürünler</th>
+                                        <th>Durum</th>
+                                        <th>Sipariş Tarihi</th>
+                                        <th style="text-align: right;">Aksiyon</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="receiving-body">
+                                    <!-- DB'den JS ile doldurulacak -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Invoices View -->
+                <section id="invoices" class="view">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Faturalar ve Ödemeler</h1>
+                            <p class="view-subtitle">Satın alması tamamlanan taleplerin faturalarını eşleştirin ve ödemesini yapın.</p>
+                        </div>
+                    </div>
+                    <div class="content-card glass-panel" style="min-height: 500px;">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <h3 style="font-weight: 600; color: var(--success);">Ödeme Bekleyen Faturalar</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Açıklama / Proje</th>
+                                        <th>Durum</th>
+                                        <th>Ödenecek Tutar</th>
+                                        <th>Tarih</th>
+                                        <th style="text-align: right;">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invoices-body">
+                                    <!-- DB'den dinamik olarak app.js tarafindan doldurulur -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Settings View -->
+                <section id="settings" class="view">
+                    <div class="view-header">
+                        <h1 class="view-title">Ayarlar</h1>
+                        <p class="view-subtitle">Sistem tercihlerinizi ve profil bilgilerinizi yönetin.</p>
+                    </div>
+
+                    <div class="settings-container" style="display: flex; gap: 24px; align-items: flex-start;">
+                        <div class="settings-sidebar glass-panel" style="width: 250px; padding: 16px;">
+                            <ul class="settings-nav" style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px;">
+                                <li class="settings-nav-item active" onclick="app.switchSettingsTab('profile')" id="nav-profile" style="padding: 12px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="user"></i> Profil Bilgileri</li>
+                                <li class="settings-nav-item" onclick="app.switchSettingsTab('notifications')" id="nav-notifications" style="padding: 12px 16px; border-radius: 8px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="bell"></i> Bildirimler</li>
+                                <li class="settings-nav-item" onclick="app.switchSettingsTab('security')" id="nav-security" style="padding: 12px 16px; border-radius: 8px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="shield"></i> Güvenlik</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="settings-content glass-panel" style="flex: 1; padding: 32px; min-height: 480px;">
+                            
+                            <!-- Profile Tab -->
+                            <div id="settings-profile" class="settings-tab active">
+                                <h3 style="margin-bottom: 24px; color: var(--text-main); font-weight: 600; font-size: 1.3rem;">Kullanıcı Profili</h3>
+                                <form onsubmit="event.preventDefault(); app.saveSettings();">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Ad Soyad</label>
+                                            <input type="text" id="setting-name" value="Ahmet Yılmaz" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Unvan</label>
+                                            <input type="text" id="setting-title" value="Satın Alma Müdürü" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>E-posta Adresi</label>
+                                        <input type="email" id="setting-email" value="ahmet.yilmaz@sirket.com" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Biyografi / Kısa Bilgi</label>
+                                        <textarea id="setting-bio" rows="3" placeholder="Kendinizden kısaca bahsedin..."></textarea>
+                                    </div>
+                                    <div style="margin-top: 32px; display:flex; justify-content: flex-end; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                        <button type="submit" class="btn primary-btn"><i data-lucide="save"></i> Profili Kaydet</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Notifications Tab -->
+                            <div id="settings-notifications" class="settings-tab" style="display: none;">
+                                <h3 style="margin-bottom: 24px; color: var(--text-main); font-weight: 600; font-size: 1.3rem;">Bildirim Tercihleri</h3>
+                                <form onsubmit="event.preventDefault(); app.saveSettings();">
+                                    <div class="form-group">
+                                        <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 12px;">
+                                            <div>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">E-posta bildirimleri al</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Tüm platform aktiviteleri e-posta adresinize gönderilir</span>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="setting-email-notif" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 12px;">
+                                            <div>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">SMS bildirimleri (Kritik İşlemler)</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Sadece onay bekleyen acil siparişlerde bildir</span>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="setting-sys-notif">
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+                                            <div>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Pazarlama e-postaları</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">CorpBuy kampanya ve güncellemelerinden haberdar olun</span>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="setting-marketing-notif">
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 32px; display:flex; justify-content: flex-end; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                        <button type="submit" class="btn primary-btn"><i data-lucide="save"></i> Tercihleri Kaydet</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Security Tab -->
+                            <div id="settings-security" class="settings-tab" style="display: none;">
+                                <h3 style="margin-bottom: 24px; color: var(--text-main); font-weight: 600; font-size: 1.3rem;">Şifre ve Güvenlik</h3>
+                                <form onsubmit="event.preventDefault(); app.saveSettings();">
+                                    <div class="form-group">
+                                        <label>Mevcut Şifre</label>
+                                        <input type="password" id="setting-current-pwd" placeholder="Şu anki şifrenizi girin">
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Yeni Şifre</label>
+                                            <input type="password" id="setting-new-pwd" placeholder="Yeni şifreniz">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Yeni Şifre (Tekrar)</label>
+                                            <input type="password" id="setting-new-pwd-repeat" placeholder="Yeni şifrenizi tekrar girin">
+                                        </div>
+                                    </div>
+
+                                    <h4 style="margin: 32px 0 16px; color: var(--text-main); font-size: 1.1rem;">İki Faktörlü Doğrulama (2FA)</h4>
+                                    <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px;">
+                                        <div>
+                                            <span style="display:block; color:var(--text-main); font-weight: 500;">2FA Etkinleştir</span>
+                                            <span style="font-size:0.85rem; color:var(--text-muted);">Hesabınızı Google Authenticator ile koruyun</span>
+                                        </div>
+                                        <label class="toggle-switch">
+                                            <input type="checkbox" id="setting-2fa">
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+
+                                    <div style="margin-top: 32px; display:flex; justify-content: flex-end; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                        <button type="submit" class="btn primary-btn" style="background:var(--success); border-color:var(--success);"><i data-lucide="shield-check"></i> Güvenlik Bilgilerini Güncelle</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <!-- Mobile Bottom Navigation -->
+        <nav class="bottom-nav glass-panel">
+            <a href="#dashboard" class="bottom-nav-item active" data-view="dashboard" onclick="app.switchView('dashboard')">
+                <i data-lucide="layout-dashboard"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#requests" class="bottom-nav-item" data-view="requests" onclick="app.switchView('requests')">
+                <i data-lucide="edit-3"></i>
+                <span>Talepler</span>
+            </a>
+            <a href="#approvals" class="bottom-nav-item" data-view="approvals" onclick="app.switchView('approvals')">
+                <i data-lucide="check-circle"></i>
+                <span>Onay</span>
+            </a>
+            <a href="#receiving" class="bottom-nav-item" data-view="receiving" onclick="app.switchView('receiving')">
+                <i data-lucide="box"></i>
+                <span>Depo</span>
+            </a>
+            <a href="#settings" class="bottom-nav-item" data-view="settings" onclick="app.switchView('settings')">
+                <i data-lucide="settings"></i>
+                <span>Ayarlar</span>
+            </a>
+        </nav>
+
+    </div>
+
+    <!-- Modal: New Request -->
+    <div class="modal" id="newRequestModal">
+        <div class="modal-backdrop" onclick="app.closeModals()"></div>
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>Yeni Satın Alma Talebi</h2>
+                <button class="close-btn" onclick="app.closeModals()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="newRequestForm">
+                    <div class="form-group">
+                        <label>Departman Sorumlusu</label>
+                        <input type="text" value="Ali Yılmaz" disabled class="disabled-input">
+                    </div>
+                    <div class="form-group">
+                        <label>Gerekçe / Proje</label>
+                        <input type="text" placeholder="Örn: Q3 Pazarlama Kampanyası Ekipmanları" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Ürün/Hizmet Tipi</label>
+                            <select required>
+                                <option value="donanim">IT Donanım</option>
+                                <option value="hizmet">Hizmet / Danışmanlık</option>
+                                <option value="ofis">Ofis Malzemesi</option>
+                                <option value="diger">Diğer</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Öncelik</label>
+                            <select required>
+                                <option value="normal">Normal</option>
+                                <option value="yuksek">Acil</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Talep Kalemleri</label>
+                        <div class="item-list">
+                            <div class="item-row">
+                                <input type="text" placeholder="Ürün Tanımı" class="flex-2" required>
+                                <input type="number" placeholder="Miktar" class="flex-1" required>
+                                <input type="text" placeholder="Birim" class="flex-1" value="Adet">
+                            </div>
+                            <button type="button" class="text-btn add-btn">+ Yeni Kalem Ekle</button>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn outline-btn" onclick="app.closeModals()">İptal</button>
+                        <button type="submit" class="btn primary-btn submit-btn">Talebi Gönder</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Gelişmiş Sipariş Formu (PO) -->
+    <div class="modal" id="quoteModal">
+        <div class="modal-backdrop" onclick="app.closeModals()"></div>
+        <div class="modal-content glass-panel" style="max-width: 850px; width: 90%;">
+            <div class="modal-header">
+                <h2>Satın Alma Sipariş Formu (PO)</h2>
+                <button class="close-btn" type="button" onclick="app.closeModals()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px; padding-bottom:32px;">
+                <!-- Left: Form Inputs -->
+                <div>
+                    <form id="quoteForm">
+                        <input type="hidden" id="quote-req-id">
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Sipariş Verilecek Tedarikçi</label>
+                            <input type="text" id="po-supplier-input" placeholder="Firma Ünvanı" oninput="app.updatePreview()">
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Anlaşılan Tutar (₺)</label>
+                            <input type="number" id="quote-amount" placeholder="Örn: 15000" required oninput="app.updatePreview()">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label>Teslimat Adresi / Depo</label>
+                            <input type="text" id="po-address-input" value="Merkez Ofis Lojistik Deposu, İstanbul" oninput="app.updatePreview()">
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 24px;">
+                            <label>Ek Notlar / Şartlar</label>
+                            <textarea id="po-notes-input" rows="3" placeholder="Ödeme vadesi, vb." style="width: 100%; border-radius: 8px; padding: 12px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1);" oninput="app.updatePreview()">30 Gün Vadeli Ödeme. Kargo alıcı ödemeli.</textarea>
+                        </div>
+
+                        <div class="modal-actions" style="margin-top: 10px; display: flex; flex-direction: column; gap: 12px;">
+                            <button type="submit" class="btn primary-btn submit-btn" style="background: var(--info); border-color: var(--info); width: 100%; justify-content: center;">
+                                <i data-lucide="shopping-cart" style="width: 16px;"></i> Resmi Siparişi Sisteme Kaydet
+                            </button>
+                            <button type="button" class="btn outline-btn" onclick="app.printPO()" style="width: 100%; justify-content: center;">
+                                <i data-lucide="printer" style="width: 16px;"></i> Formu Yazdır (PDF)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right: Live A4 Document Preview -->
+                <div class="po-preview-container" style="background: #f8fafc; border-radius: var(--radius-sm); padding: 24px; color: #0f172a; box-shadow: inset 0 2px 10px rgba(0,0,0,0.05); overflow-y: auto; max-height: 500px;">
+                    <div id="po-document-print-area" style="background: #ffffff; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: 'Times New Roman', serif; position: relative; color: #000;">
+                        
+                        <div style="border-bottom: 2px solid #1e293b; padding-bottom: 16px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div>
+                                <h2 style="font-size: 1.5rem; font-weight: bold; margin: 0; color: #0f172a;">PURCHASE ORDER</h2>
+                                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem; font-family: sans-serif;">SATIN ALMA SİPARİŞ FORMU</p>
+                            </div>
+                            <div style="text-align: right; font-family: sans-serif; font-size: 0.85rem;">
+                                <strong>Tarih:</strong> <span id="prev-date"></span><br>
+                                <strong>Talep No:</strong> <span id="prev-req-no"></span>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 32px; margin-bottom: 32px; font-family: sans-serif; font-size: 0.9rem;">
+                            <div style="flex: 1;">
+                                <strong style="color:#0f172a; border-bottom: 1px solid #cbd5e1; display: block; margin-bottom: 8px; padding-bottom: 4px;">Tedarikçi Firma / To:</strong>
+                                <div id="prev-supplier" style="min-height: 20px; font-weight: 600;">Belirtilmedi</div>
+                            </div>
+                            <div style="flex: 1;">
+                                <strong style="color:#0f172a; border-bottom: 1px solid #cbd5e1; display: block; margin-bottom: 8px; padding-bottom: 4px;">Teslimat Adresi / Ship:</strong>
+                                <div id="prev-address" style="min-height: 40px;">Merkez Ofis Lojistik Deposu, İstanbul</div>
+                            </div>
+                        </div>
+
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px; font-family: sans-serif; font-size: 0.9rem;">
+                            <thead>
+                                <tr style="background: #f1f5f9;">
+                                    <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: left;">Kalem / Açıklama (Description)</th>
+                                    <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; width: 120px;">Tutar (Amount)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="border: 1px solid #cbd5e1; padding: 12px; height: 60px; vertical-align: top;" id="prev-desc"></td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 12px; text-align: right; font-weight: bold; vertical-align: top;" id="prev-amount">₺0.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div style="margin-bottom: 32px; font-family: sans-serif; font-size: 0.85rem; color: #475569;">
+                            <strong style="color:#0f172a;">Özel Şartlar ve Notlar:</strong>
+                            <p id="prev-notes" style="margin-top: 8px; white-space: pre-wrap;">30 Gün Vadeli Ödeme. Kargo alıcı ödemeli.</p>
+                        </div>
+                        
+                        <div style="margin-top: 48px; display: flex; justify-content: space-between; text-align: center; font-family: sans-serif; font-size: 0.9rem;">
+                            <div style="width: 200px; border-top: 1px solid #94a3b8; padding-top: 8px;">Tedarikçi Kaşe & İmza</div>
+                            <div style="width: 200px; border-top: 1px solid #94a3b8; padding-top: 8px;">Yetkili Satın Alma Onayı</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Sipariş Detayları -->
+    <div class="modal" id="detailsModal">
+        <div class="modal-backdrop" onclick="app.closeModals()"></div>
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Talep & Sipariş Detayları</h2>
+                <button class="close-btn" type="button" onclick="app.closeModals()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="color: var(--text-main); line-height: 1.6;">
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 12px;">
+                        <span style="color: var(--text-muted);">Sipariş/Talep No:</span>
+                        <strong id="det-req-no" style="font-size: 1.1rem; color: #fff;"></strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 12px;">
+                        <span style="color: var(--text-muted);">Sipariş Tarihi:</span>
+                        <span id="det-date" style="color: #fff;"></span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 12px;">
+                        <span style="color: var(--text-muted);">Anlaşılan Tutar:</span>
+                        <strong id="det-amount" style="color: var(--success); font-size: 1.1rem;"></strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px; margin-bottom: 12px;">
+                        <span style="color: var(--text-muted);">Güncel Durum:</span>
+                        <span id="det-status"></span>
+                    </div>
+                    <div style="display: flex; flex-direction: column;">
+                        <span style="color: var(--text-muted); margin-bottom: 6px;">İçerik Açıklaması / Notlar:</span>
+                        <div id="det-desc" style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 6px; color: #cbd5e1; font-size: 0.95rem;"></div>
+                    </div>
+                </div>
+
+                <div class="modal-actions" style="text-align: right;">
+                    <button type="button" class="btn outline-btn" onclick="app.closeModals()">Kapat</button>
+                    <button type="button" class="btn primary-btn" onclick="app.closeModals()" style="background: var(--info); border-color: var(--info);">Anladım</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Kredi Kartı Ödeme -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-backdrop" onclick="app.closeModals()"></div>
+        <div class="modal-content glass-panel" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2>Güvenli Ödeme Ekranı</h2>
+                <button class="close-btn" type="button" onclick="app.closeModals()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="payment-summary" style="margin-bottom: 24px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.05); text-align: center;">
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 4px;">Ödenecek Tutar / <span id="pay-req-no" style="color: var(--text-main); font-weight: 500;"></span></p>
+                    <h2 id="pay-amount" style="font-size: 1.8rem; color: var(--success); font-weight: 700;">0.00</h2>
+                </div>
+
+                <form id="paymentForm">
+                    <input type="hidden" id="pay-req-id">
+                    
+                    <div class="form-group">
+                        <label>Kart Üzerindeki İsim</label>
+                        <input type="text" placeholder="Ad Soyad" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Kart Numarası</label>
+                        <input type="text" placeholder="0000 0000 0000 0000" maxlength="19" required style="letter-spacing: 2px;">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Son Kullanma Tarihi</label>
+                            <input type="text" placeholder="AA/YY" maxlength="5" required>
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="password" placeholder="123" maxlength="3" required>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions" style="margin-top: 32px;">
+                        <button type="button" class="btn outline-btn" onclick="app.closeModals()">İptal</button>
+                        <button type="submit" class="btn primary-btn submit-btn" style="background: var(--success); border-color: var(--success);"><i data-lucide="lock" style="width:16px;"></i> Ödemeyi Tamamla</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=20"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then((registration) => {
+                    console.log('SW Başarıyla Kaydedildi: ', registration.scope);
+                }).catch((err) => {
+                    console.log('SW Kaydı Başarısız: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
