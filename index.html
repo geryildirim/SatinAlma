@@ -18,7 +18,23 @@
     <link href="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack.min.css" rel="stylesheet"/>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@10.0.1/dist/gridstack-all.js"></script>
 </head>
-<body class="login-pending">
+<body>
+    <script>
+        // Emergency Auth Sync: Runs before anything else
+        (function() {
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            if (token && user) {
+                document.body.classList.remove('login-pending');
+                // Hide overlay immediately if authed
+                const style = document.createElement('style');
+                style.innerHTML = '#loginOverlay { display: none !important; pointer-events: none !important; }';
+                document.head.appendChild(style);
+            } else {
+                document.body.classList.add('login-pending');
+            }
+        })();
+    </script>
     <div class="app-container">
         
         <!-- Sidebar -->
