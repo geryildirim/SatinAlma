@@ -11,7 +11,7 @@ const statusMap = {
 };
 
 const App = {
-    version: '26',
+    version: '27',
     requestsData: [], 
     isEditMode: false,
     grid: null,
