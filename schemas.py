@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class RequestCreate(BaseModel):
     description: str
@@ -11,3 +11,20 @@ class RequestUpdate(BaseModel):
     amount: Optional[str] = None
     supplier: Optional[str] = None
     address: Optional[str] = None
+
+# --- Auth Schemas ---
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class UserOut(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    role: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserOut

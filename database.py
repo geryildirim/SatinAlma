@@ -1,5 +1,8 @@
 import sqlite3
 from datetime import datetime
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 DB_NAME = "satin_alma.db"
 
@@ -24,6 +27,16 @@ def init_db():
             address TEXT DEFAULT ''
         )
     ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            hashed_password TEXT,
+            full_name TEXT,
+            role TEXT
+        )
+    ''')
     
     c.execute("SELECT COUNT(*) FROM requests")
     if c.fetchone()[0] == 0:
@@ -36,6 +49,18 @@ def init_db():
         ]
         c.executemany("INSERT INTO requests (request_no, description, amount, status, date) VALUES (?,?,?,?,?)", sample_data)
         conn.commit()
+
+    # Varsayılan kullanıcıları ekle
+    c.execute("SELECT COUNT(*) FROM users")
+    if c.fetchone()[0] == 0:
+        print("[Veritabanı] Kullanıcı tablosu boş, admin ve user hesapları oluşturuluyor...")
+        users = [
+            ("admin", pwd_context.hash("admin123"), "Sistem Yöneticisi", "admin"),
+            ("user", pwd_context.hash("user123"), "Ali Yılmaz", "user")
+        ]
+        c.executemany("INSERT INTO users (username, hashed_password, full_name, role) VALUES (?,?,?,?)", users)
+        conn.commit()
+
     conn.close()
     print("[Veritabanı] Hazır.")
 
@@ -97,3 +122,14 @@ def delete_request(req_id: int):
     conn.commit()
     conn.close()
     return {"success": True}
+
+# --- Kullanıcı İşlemleri ---
+
+def get_user_by_username(username: str):
+    conn = get_connection()
+    user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return dict(user) if user else None
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
