@@ -179,6 +179,9 @@ const App = {
             this.renderOrdersPage();
             this.renderInvoicesPage();
             this.renderReceivingPage();
+            if (this.user.role === 'admin') {
+                this.renderUsersPage();
+            }
         } catch (error) {
             console.error("Veritabanı hatası:", error);
             const body = document.getElementById('recent-requests-body');
@@ -248,6 +251,47 @@ const App = {
                 const addr = document.getElementById('po-address-input').value;
                 const formattedAmount = "₺" + Number(amt).toLocaleString('tr-TR', {minimumFractionDigits: 2});
                 this.updateStatus(null, reqId, 'po', { amount: formattedAmount, supplier, address: addr });
+            });
+        }
+
+        const userForm = document.getElementById('userForm');
+        if (userForm) {
+            userForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fullName = document.getElementById('user-fullname').value;
+                const username = document.getElementById('user-username').value;
+                const password = document.getElementById('user-password').value;
+                const role = document.getElementById('user-role').value;
+                const editId = document.getElementById('edit-user-id').value;
+
+                try {
+                    let response;
+                    if (editId) {
+                        // Edit Mode: Only role update as requested
+                        response = await fetch(`/api/users/${editId}/role`, {
+                            method: 'PUT',
+                            headers: this.getHeaders(),
+                            body: JSON.stringify({ role })
+                        });
+                    } else {
+                        // Create Mode
+                        response = await fetch('/api/users', {
+                            method: 'POST',
+                            headers: this.getHeaders(),
+                            body: JSON.stringify({ full_name: fullName, username, password, role })
+                        });
+                    }
+                    
+                    if (response.status === 401) return this.logout();
+                    if (response.ok) {
+                        this.closeModals();
+                        userForm.reset();
+                        await this.fetchDataAndRender();
+                    } else {
+                        const err = await response.json();
+                        alert(err.detail || "İşlem başarısız");
+                    }
+                } catch (err) { console.error(err); }
             });
         }
     },
@@ -411,10 +455,59 @@ const App = {
         lucide.createIcons();
     },
 
+    renderUsersPage() {
+        const tbody = document.getElementById('users-body');
+        if (!tbody) return;
+        
+        fetch('/api/users', { headers: this.getHeaders() })
+            .then(res => {
+                if (res.status === 401) return this.logout();
+                return res.json();
+            })
+            .then(users => {
+                tbody.innerHTML = '';
+                if (!users || users.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 48px 0;">Kayıtlı kullanıcı bulunmuyor.</td></tr>`;
+                    return;
+                }
+                users.forEach(u => {
+                    const tr = document.createElement('tr');
+                    const roleBadge = u.role === 'admin' ? '<span class="status-badge status-po">Yönetici</span>' : '<span class="status-badge status-approved">Personel</span>';
+                    tr.innerHTML = `
+                        <td>#${u.id}</td>
+                        <td><strong>${u.username}</strong></td>
+                        <td>${u.full_name}</td>
+                        <td>${roleBadge}</td>
+                        <td style="text-align: right;">
+                            <button class="outline-btn" onclick='app.editUser(${JSON.stringify(u)})' style="margin-right: 8px;">
+                                <i data-lucide="edit" style="width:14px; color:var(--info);"></i>
+                            </button>
+                            <button class="outline-btn" onclick="app.deleteUser(${u.id})" ${u.username === 'admin' ? 'disabled style="opacity:0.5;"' : ''}>
+                                <i data-lucide="trash-2" style="width:14px; color:#ef4444;"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                lucide.createIcons();
+            })
+            .catch(err => console.error("Kullanıcı listesi hatası:", err));
+    },
+
     async deleteRequest(id) {
         if(!confirm('Bu talebi silmek istediğinize emin misiniz?')) return;
         try {
             const res = await fetch(`/api/requests/${id}`, { method: 'DELETE', headers: this.getHeaders() });
+            if (res.status === 401) return this.logout();
+            if (res.status === 403) return alert("Hata: Admin yetkisi gereklidir.");
+            if(res.ok) await this.fetchDataAndRender();
+        } catch(err) { console.error(err); }
+    },
+
+    async deleteUser(id) {
+        if(!confirm('Bu kullanıcıyı sistemden silmek istediğinize emin misiniz?')) return;
+        try {
+            const res = await fetch(`/api/users/${id}`, { method: 'DELETE', headers: this.getHeaders() });
             if (res.status === 401) return this.logout();
             if (res.status === 403) return alert("Hata: Admin yetkisi gereklidir.");
             if(res.ok) await this.fetchDataAndRender();
@@ -463,8 +556,150 @@ const App = {
     initGridStack() {
         const gridEl = document.getElementById('dashboard-grid');
         if(typeof GridStack !== 'undefined' && gridEl) {
-            this.grid = GridStack.init({ staticGrid: true, cellHeight: '120px', margin: 12 });
+            const savedLayout = localStorage.getItem('dashboard-layout');
+            const options = { 
+                staticGrid: true, 
+                cellHeight: '120px', 
+                margin: 12,
+                float: true,
+                removable: '.trash',
+                removeTimeout: 100
+            };
+            
+            this.grid = GridStack.init(options, gridEl);
+            
+            if (savedLayout) {
+                try {
+                    const layout = JSON.parse(savedLayout);
+                    this.grid.load(layout);
+                } catch (e) {
+                    console.error("Layout load error:", e);
+                }
+            }
         }
+    },
+
+    toggleDashboardEditMode() {
+        this.isEditMode = !this.isEditMode;
+        const btn = document.getElementById('btn-edit-dashboard');
+        
+        if (this.isEditMode) {
+            if (this.grid) {
+                this.grid.setStatic(false);
+                this.grid.enableMove(true);
+                this.grid.enableResize(true);
+            }
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="check"></i> Yerleşimi Kaydet';
+                btn.style.background = 'var(--success)';
+                btn.style.color = 'white';
+                btn.style.borderColor = 'var(--success)';
+            }
+        } else {
+            if (this.grid) {
+                this.grid.setStatic(true);
+                const layout = this.grid.save();
+                localStorage.setItem('dashboard-layout', JSON.stringify(layout));
+            }
+            if (btn) {
+                btn.innerHTML = '<i data-lucide="layout"></i> Görünümü Düzenle';
+                btn.style.background = 'transparent';
+                btn.style.color = 'var(--text-main)';
+                btn.style.borderColor = 'var(--surface-border)';
+            }
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    openNewRequestModal() {
+        const modal = document.getElementById('newRequestModal');
+        if (modal) modal.classList.add('show');
+    },
+
+    openUserModal() {
+        document.getElementById('userForm').reset();
+        document.getElementById('edit-user-id').value = '';
+        document.querySelector('#userModal h2').innerText = 'Sistem Kullanıcısı Tanımla';
+        document.querySelector('#userModal .submit-btn').innerHTML = '<i data-lucide="save" style="width:16px;"></i> Kaydet ve Oluştur';
+        
+        document.getElementById('user-fullname-group').style.display = 'block';
+        document.getElementById('user-username-group').style.display = 'block';
+        document.getElementById('user-password-group').style.display = 'block';
+        
+        const modal = document.getElementById('userModal');
+        if (modal) modal.classList.add('show');
+        lucide.createIcons();
+    },
+
+    editUser(user) {
+        document.getElementById('userForm').reset();
+        document.getElementById('edit-user-id').value = user.id;
+        document.querySelector('#userModal h2').innerText = 'Kullanıcı Yetkisi Düzenle';
+        document.querySelector('#userModal .submit-btn').innerHTML = '<i data-lucide="check" style="width:16px;"></i> Değişiklikleri Uygula';
+        
+        // Hide name/pass for role-only edit to keep it clean, but set values
+        document.getElementById('user-fullname').value = user.full_name;
+        document.getElementById('user-username').value = user.username;
+        document.getElementById('user-password').value = '********'; // Dummy
+        
+        document.getElementById('user-fullname-group').style.display = 'none';
+        document.getElementById('user-username-group').style.display = 'none';
+        document.getElementById('user-password-group').style.display = 'none';
+        
+        document.getElementById('user-role').value = user.role;
+        
+        const modal = document.getElementById('userModal');
+        if (modal) modal.classList.add('show');
+        lucide.createIcons();
+    },
+
+    closeModals() {
+        document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+    },
+
+    switchSettingsTab(tabId) {
+        document.querySelectorAll('.settings-tab').forEach(t => t.style.display = 'none');
+        document.querySelectorAll('.settings-nav-item').forEach(i => {
+            i.classList.remove('active');
+            i.style.color = 'var(--text-muted)';
+        });
+
+        const activeTab = document.getElementById(`settings-${tabId}`);
+        const activeNav = document.getElementById(`nav-${tabId}`);
+        
+        if (activeTab) activeTab.style.display = 'block';
+        if (activeNav) {
+            activeNav.classList.add('active');
+            activeNav.style.color = 'var(--primary-color)';
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    saveSettings() {
+        alert("Profil ayarları başarıyla kaydedildi.");
+    },
+
+    updatePreview() {
+        const supplier = document.getElementById('po-supplier-input')?.value || "Belirtilmedi";
+        const amountStr = document.getElementById('quote-amount')?.value || "0";
+        const address = document.getElementById('po-address-input')?.value || "Belirtilmedi";
+        const notes = document.getElementById('po-notes-input')?.value || "Yok";
+
+        const formattedAmount = "₺" + Number(amountStr).toLocaleString('tr-TR', {minimumFractionDigits: 2});
+
+        const prevSupplier = document.getElementById('prev-supplier');
+        const prevAmount = document.getElementById('prev-amount');
+        const prevAddress = document.getElementById('prev-address');
+        const prevNotes = document.getElementById('prev-notes');
+
+        if(prevSupplier) prevSupplier.innerText = supplier;
+        if(prevAmount) prevAmount.innerText = formattedAmount;
+        if(prevAddress) prevAddress.innerText = address;
+        if(prevNotes) prevNotes.innerText = notes;
+    },
+
+    printPO() {
+        window.print();
     },
 
     filterByStatus(status) {

@@ -133,3 +133,43 @@ def get_user_by_username(username: str):
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
+def get_hash(password):
+    return pwd_context.hash(password)
+
+def get_all_users():
+    conn = get_connection()
+    users = [dict(u) for u in conn.execute("SELECT id, username, full_name, role FROM users").fetchall()]
+    conn.close()
+    return users
+
+def create_user(username, password, full_name, role):
+    conn = get_connection()
+    c = conn.cursor()
+    hashed_password = get_hash(password)
+    try:
+        c.execute(
+            "INSERT INTO users (username, hashed_password, full_name, role) VALUES (?,?,?,?)",
+            (username, hashed_password, full_name, role)
+        )
+        conn.commit()
+        new_id = c.lastrowid
+        conn.close()
+        return {"id": new_id, "username": username, "success": True}
+    except sqlite3.IntegrityError:
+        conn.close()
+        return None
+
+def delete_user(user_id):
+    conn = get_connection()
+    conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+    conn.commit()
+    conn.close()
+    return {"success": True}
+
+def update_user_role(user_id, role):
+    conn = get_connection()
+    conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+    conn.commit()
+    conn.close()
+    return {"success": True}

@@ -4,7 +4,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token
+from typing import List
+from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate
 import database
 
 # Veritabanını başlat
@@ -81,6 +82,31 @@ async def login(data: UserLogin):
             "role": user["role"]
         }
     }
+
+# ===================== USER MANAGEMENT (Admin Only) =====================
+
+@app.get("/api/users", response_model=List[UserOut])
+def list_users(current_user: dict = Depends(check_admin)):
+    """Tüm kullanıcıları listeler."""
+    return database.get_all_users()
+
+@app.post("/api/users")
+def create_user(data: UserCreate, current_user: dict = Depends(check_admin)):
+    """Yeni bir kullanıcı oluşturur."""
+    result = database.create_user(data.username, data.password, data.full_name, data.role)
+    if not result:
+        raise HTTPException(status_code=400, detail="Kullanıcı adı zaten mevcut")
+    return result
+
+@app.delete("/api/users/{user_id}")
+def delete_user(user_id: int, current_user: dict = Depends(check_admin)):
+    """Bir kullanıcıyı siler."""
+    return database.delete_user(user_id)
+
+@app.put("/api/users/{user_id}/role")
+def update_user_role(user_id: int, data: UserRoleUpdate, current_user: dict = Depends(check_admin)):
+    """Bir kullanıcının yetkisini günceller."""
+    return database.update_user_role(user_id, data.role)
 
 # ===================== API ENDPOINTS =====================
 
