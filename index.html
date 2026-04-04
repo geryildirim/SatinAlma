@@ -27,7 +27,6 @@
             if (token && user) {
                 document.body.classList.remove('login-pending');
                 // Hide overlay immediately if authed
-                const CACHE_NAME = 'corpbuy-v9';
                 const style = document.createElement('style');
                 style.innerHTML = '#loginOverlay { display: none !important; pointer-events: none !important; }';
                 document.head.appendChild(style);
@@ -742,7 +741,13 @@
                 <form id="newRequestForm">
                     <div class="form-group">
                         <label>Departman Sorumlusu</label>
-                        <input type="text" value="Ali Yılmaz" disabled class="disabled-input">
+                        <div class="input-wrapper">
+                            <i data-lucide="user"></i>
+                            <select id="request-requester" required>
+                                <option value="" disabled selected>Talep Ekleyen Kişi...</option>
+                            </select>
+                            <i data-lucide="chevron-down" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); pointer-events: none; width: 16px; opacity: 0.5;"></i>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Gerekçe / Proje</label>
@@ -1092,7 +1097,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=37"></script>
+    <script src="js/app.js?v=38"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

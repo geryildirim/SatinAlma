@@ -24,9 +24,16 @@ def init_db():
             status TEXT,
             date TEXT,
             supplier TEXT DEFAULT '',
-            address TEXT DEFAULT ''
+            address TEXT DEFAULT '',
+            requester TEXT DEFAULT 'Bilinmiyor'
         )
     ''')
+    
+    # Try altering existing table (if legacy DB)
+    try:
+        c.execute("ALTER TABLE requests ADD COLUMN requester TEXT DEFAULT 'Bilinmiyor'")
+    except sqlite3.OperationalError:
+        pass # Zaten varsa hata verir, gecer.
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -97,7 +104,7 @@ def get_stats():
         "readyInvoices": approved
     }
 
-def create_request(description: str, amount: str = "Teklif Bekleniyor"):
+def create_request(description: str, amount: str = "Teklif Bekleniyor", requester: str = "Bilinmiyor"):
     conn = get_connection()
     c = conn.cursor()
     c.execute("SELECT COUNT(*) FROM requests")
@@ -105,8 +112,8 @@ def create_request(description: str, amount: str = "Teklif Bekleniyor"):
     request_no = f"PR-2026-{count:03d}"
     date_str = datetime.now().strftime("%d.%m.%Y")
     c.execute(
-        "INSERT INTO requests (request_no, description, amount, status, date) VALUES (?,?,?,?,?)",
-        (request_no, description, amount, "pending", date_str)
+        "INSERT INTO requests (request_no, description, amount, status, date, requester) VALUES (?,?,?,?,?,?)",
+        (request_no, description, amount, "pending", date_str, requester)
     )
     conn.commit()
     new_id = c.lastrowid

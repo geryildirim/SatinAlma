@@ -86,7 +86,7 @@ async def login(data: UserLogin):
 # ===================== USER MANAGEMENT (Admin Only) =====================
 
 @app.get("/api/users", response_model=List[UserOut])
-def list_users(current_user: dict = Depends(check_admin)):
+def list_users(current_user: dict = Depends(get_current_user)):
     """Tüm kullanıcıları listeler."""
     return database.get_all_users()
 
@@ -123,7 +123,7 @@ def get_stats(current_user: dict = Depends(get_current_user)):
 @app.post("/api/requests")
 def create_request(data: RequestCreate, current_user: dict = Depends(get_current_user)):
     """Yeni bir satın alma talebi oluşturur."""
-    result = database.create_request(data.description, data.amount)
+    result = database.create_request(data.description, data.amount, data.requester)
     return result
 
 @app.post("/api/requests/update")

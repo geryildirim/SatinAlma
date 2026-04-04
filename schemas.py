@@ -4,6 +4,7 @@ from typing import Optional, List
 class RequestCreate(BaseModel):
     description: str
     amount: Optional[str] = "Teklif Bekleniyor"
+    requester: Optional[str] = "Bilinmiyor"
 
 class RequestUpdate(BaseModel):
     id: int

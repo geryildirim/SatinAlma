@@ -1,4 +1,4 @@
-const CACHE_NAME = 'corpbuy-v9';
+const CACHE_NAME = 'corpbuy-v10';
 const urlsToCache = [
   '/',
   '/css/styles.css',

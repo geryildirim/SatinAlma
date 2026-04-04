@@ -185,6 +185,7 @@ const App = {
             if (this.user.role === 'admin') {
                 this.renderUsersPage();
             }
+            await this.loadUserDropdown();
         } catch (error) {
             console.error("Veritabanı hatası:", error);
             const body = document.getElementById('recent-requests-body');
@@ -210,14 +211,42 @@ const App = {
         });
     },
 
+    async loadUserDropdown() {
+        try {
+            const res = await fetch('/api/users', { headers: this.getHeaders() });
+            if (res.ok) {
+                const users = await res.json();
+                const select = document.getElementById('request-requester');
+                if (select) {
+                    select.innerHTML = '<option value="" disabled>Talep Ekleyen Kişi...</option>';
+                    users.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.full_name;
+                        opt.textContent = u.full_name;
+                        select.appendChild(opt);
+                    });
+                    
+                    const currentUserInfo = localStorage.getItem('user');
+                    if(currentUserInfo) {
+                        try {
+                            const parsed = JSON.parse(currentUserInfo);
+                            select.value = parsed.full_name;
+                        } catch(e) {}
+                    }
+                }
+            }
+        } catch (err) { console.error(err); }
+    },
+
     bindForms() {
         const form = document.getElementById('newRequestForm');
         if (form) {
             form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const inputs = form.querySelectorAll('input');
-                const desc = inputs[1].value;
-                const reqBody = { description: desc, amount: "Teklif Bekleniyor" };
+                const desc = inputs[0].value;
+                const requesterVal = document.getElementById('request-requester')?.value || 'Bilinmiyor';
+                const reqBody = { description: desc, amount: "Teklif Bekleniyor", requester: requesterVal };
                 try {
                     const response = await fetch('/api/requests', {
                         method: 'POST',
@@ -337,7 +366,7 @@ const App = {
 
         data.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}</td><td style="font-weight: 500;">${req.amount}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.date}</td>`;
+            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${req.requester || 'Bilinmiyor'}</small></td><td style="font-weight: 500;">${req.amount}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.date}</td>`;
             tbody.appendChild(tr);
         });
     },
@@ -357,7 +386,7 @@ const App = {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td><strong>${req.request_no}</strong></td>
-                <td>${req.description}</td>
+                <td>${req.description}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${req.requester || 'Bilinmiyor'}</small></td>
                 <td><span class="status-badge status-pending">Onay Bekliyor</span></td>
                 <td>${req.date}</td>
                 <td style="text-align: right;">
