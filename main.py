@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import List
-from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut
+from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut
 import database
 
 # Veritabanını başlat
@@ -108,22 +108,37 @@ def update_user_role(user_id: int, data: UserRoleUpdate, current_user: dict = De
     """Bir kullanıcının yetkisini günceller."""
     return database.update_user_role(user_id, data.role)
 
+# ===================== COMPANY MANAGEMENT =====================
+
+@app.get("/api/companies", response_model=List[CompanyOut])
+def get_companies():
+    """Tüm şirketleri listeler."""
+    return database.get_all_companies()
+
+@app.post("/api/companies")
+def create_company(data: CompanyCreate, current_user: dict = Depends(check_admin)):
+    """Yeni bir şirket oluşturur (Sadece Admin)."""
+    success = database.create_company(data.name)
+    if not success:
+        raise HTTPException(status_code=400, detail="Şirket adı zaten mevcut.")
+    return {"success": True}
+
 # ===================== API ENDPOINTS =====================
 
 @app.get("/api/requests")
-def list_requests(current_user: dict = Depends(get_current_user)):
+def list_requests(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Tüm satın alma taleplerini listeler."""
-    return database.get_all_requests()
+    return database.get_all_requests(company_id)
 
 @app.get("/api/stats")
-def get_stats(current_user: dict = Depends(get_current_user)):
+def get_stats(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Dashboard istatistiklerini döner."""
-    return database.get_stats()
+    return database.get_stats(company_id)
 
 @app.post("/api/requests")
 def create_request(data: RequestCreate, current_user: dict = Depends(get_current_user)):
     """Yeni bir satın alma talebi oluşturur."""
-    result = database.create_request(data.description, data.amount, data.requester)
+    result = database.create_request(data.description, data.amount, data.requester, data.company_id)
     return result
 
 @app.post("/api/requests/update")
@@ -144,9 +159,9 @@ def delete_request(req_id: int, current_user: dict = Depends(check_admin)):
     return database.delete_request(req_id)
 
 @app.get("/api/stock", response_model=List[StockOut])
-def get_stock(current_user: dict = Depends(get_current_user)):
+def get_stock(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Tüm stok verilerini döndürür."""
-    return database.get_all_stocks()
+    return database.get_all_stocks(company_id)
 
 # ===================== STATIC FILES (Frontend) =====================
 

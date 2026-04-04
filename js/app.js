@@ -16,6 +16,7 @@ const App = {
     isEditMode: false,
     grid: null,
     user: null, // Giriş yapmış kullanıcı bilgisi
+    currentCompanyId: 1,
 
     async init() {
         try {
@@ -30,6 +31,7 @@ const App = {
                 this.initGridStack();
                 this.bindNav();
                 this.bindForms();
+                await this.loadCompanies();
                 await this.fetchDataAndRender();
             }
             this.bindLogin();
@@ -157,8 +159,8 @@ const App = {
     async fetchDataAndRender() {
         try {
             const [statsRes, reqsRes] = await Promise.all([
-                fetch('/api/stats', { headers: this.getHeaders() }),
-                fetch('/api/requests', { headers: this.getHeaders() })
+                fetch(`/api/stats?company_id=${this.currentCompanyId}`, { headers: this.getHeaders() }),
+                fetch(`/api/requests?company_id=${this.currentCompanyId}`, { headers: this.getHeaders() })
             ]);
             
             if (statsRes.status === 401 || reqsRes.status === 401) {
@@ -211,6 +213,31 @@ const App = {
         });
     },
 
+    async loadCompanies() {
+        try {
+            const res = await fetch('/api/companies', { headers: this.getHeaders() });
+            if (res.ok) {
+                const companies = await res.json();
+                const select = document.getElementById('global-company-selector');
+                if (select) {
+                    select.innerHTML = '';
+                    companies.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = c.name;
+                        select.appendChild(opt);
+                    });
+                    select.value = this.currentCompanyId;
+                }
+            }
+        } catch (e) { console.error(e); }
+    },
+    
+    async changeCompany(companyId) {
+        this.currentCompanyId = parseInt(companyId);
+        await this.fetchDataAndRender();
+    },
+
     async loadUserDropdown() {
         try {
             const res = await fetch('/api/users', { headers: this.getHeaders() });
@@ -246,7 +273,7 @@ const App = {
                 const inputs = form.querySelectorAll('input');
                 const desc = inputs[0].value;
                 const requesterVal = document.getElementById('request-requester')?.value || 'Bilinmiyor';
-                const reqBody = { description: desc, amount: "Teklif Bekleniyor", requester: requesterVal };
+                const reqBody = { description: desc, amount: "Teklif Bekleniyor", requester: requesterVal, company_id: this.currentCompanyId };
                 try {
                     const response = await fetch('/api/requests', {
                         method: 'POST',
@@ -502,7 +529,7 @@ const App = {
         if (!tbody && !cardsContainer) return;
 
         try {
-            const res = await fetch('/api/stock', { headers: this.getHeaders() });
+            const res = await fetch(`/api/stock?company_id=${this.currentCompanyId}`, { headers: this.getHeaders() });
             if (res.status === 401) return this.logout();
             
             let stocks = await res.json();

@@ -16,6 +16,17 @@ def init_db():
     conn = get_connection()
     c = conn.cursor()
     c.execute('''
+        CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        )
+    ''')
+    c.execute("SELECT COUNT(*) FROM companies")
+    if c.fetchone()[0] == 0:
+        c.execute("INSERT INTO companies (name) VALUES (?)", ("Merkez Ofis",))
+        conn.commit()
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS requests (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             request_no TEXT,
@@ -25,7 +36,8 @@ def init_db():
             date TEXT,
             supplier TEXT DEFAULT '',
             address TEXT DEFAULT '',
-            requester TEXT DEFAULT 'Bilinmiyor'
+            requester TEXT DEFAULT 'Bilinmiyor',
+            company_id INTEGER DEFAULT 1
         )
     ''')
     
@@ -34,6 +46,11 @@ def init_db():
         c.execute("ALTER TABLE requests ADD COLUMN requester TEXT DEFAULT 'Bilinmiyor'")
     except sqlite3.OperationalError:
         pass # Zaten varsa hata verir, gecer.
+        
+    try:
+        c.execute("ALTER TABLE requests ADD COLUMN company_id INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -53,9 +70,15 @@ def init_db():
             quantity INTEGER DEFAULT 1,
             unit TEXT DEFAULT 'Adet',
             date_added TEXT,
+            company_id INTEGER DEFAULT 1,
             FOREIGN KEY (request_id) REFERENCES requests (id)
         )
     ''')
+    
+    try:
+        c.execute("ALTER TABLE stocks ADD COLUMN company_id INTEGER DEFAULT 1")
+    except sqlite3.OperationalError:
+        pass
     
     c.execute("SELECT COUNT(*) FROM requests")
     if c.fetchone()[0] == 0:
@@ -83,19 +106,36 @@ def init_db():
     conn.close()
     print("[Veritabanı] Hazır.")
 
-def get_all_requests():
+def get_all_companies():
     conn = get_connection()
-    rows = [dict(r) for r in conn.execute("SELECT * FROM requests ORDER BY id DESC").fetchall()]
+    rows = [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()]
     conn.close()
     return rows
 
-def get_stats():
+def create_company(name: str):
+    conn = get_connection()
+    try:
+        conn.execute("INSERT INTO companies (name) VALUES (?)", (name,))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def get_all_requests(company_id: int = 1):
+    conn = get_connection()
+    rows = [dict(r) for r in conn.execute("SELECT * FROM requests WHERE company_id=? ORDER BY id DESC", (company_id,)).fetchall()]
+    conn.close()
+    return rows
+
+def get_stats(company_id: int = 1):
     conn = get_connection()
     c = conn.cursor()
-    total = c.execute("SELECT COUNT(*) FROM requests").fetchone()[0]
-    pending = c.execute("SELECT COUNT(*) FROM requests WHERE status='pending'").fetchone()[0]
-    po = c.execute("SELECT COUNT(*) FROM requests WHERE status='po'").fetchone()[0]
-    approved = c.execute("SELECT COUNT(*) FROM requests WHERE status='approved'").fetchone()[0]
+    total = c.execute("SELECT COUNT(*) FROM requests WHERE company_id=?", (company_id,)).fetchone()[0]
+    pending = c.execute("SELECT COUNT(*) FROM requests WHERE status='pending' AND company_id=?", (company_id,)).fetchone()[0]
+    po = c.execute("SELECT COUNT(*) FROM requests WHERE status='po' AND company_id=?", (company_id,)).fetchone()[0]
+    approved = c.execute("SELECT COUNT(*) FROM requests WHERE status='approved' AND company_id=?", (company_id,)).fetchone()[0]
     conn.close()
     return {
         "activeRequests": total,
@@ -104,16 +144,16 @@ def get_stats():
         "readyInvoices": approved
     }
 
-def create_request(description: str, amount: str = "Teklif Bekleniyor", requester: str = "Bilinmiyor"):
+def create_request(description: str, amount: str = "Teklif Bekleniyor", requester: str = "Bilinmiyor", company_id: int = 1):
     conn = get_connection()
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM requests")
+    c.execute("SELECT COUNT(*) FROM requests WHERE company_id=?", (company_id,))
     count = c.fetchone()[0] + 1
     request_no = f"PR-2026-{count:03d}"
     date_str = datetime.now().strftime("%d.%m.%Y")
     c.execute(
-        "INSERT INTO requests (request_no, description, amount, status, date, requester) VALUES (?,?,?,?,?,?)",
-        (request_no, description, amount, "pending", date_str, requester)
+        "INSERT INTO requests (request_no, description, amount, status, date, requester, company_id) VALUES (?,?,?,?,?,?,?)",
+        (request_no, description, amount, "pending", date_str, requester, company_id)
     )
     conn.commit()
     new_id = c.lastrowid
@@ -163,15 +203,16 @@ def verify_password(plain_password, hashed_password):
 def get_hash(password):
     return pwd_context.hash(password)
 
-def get_all_stocks():
+def get_all_stocks(company_id: int = 1):
     conn = get_connection()
     c = conn.cursor()
     c.execute("""
         SELECT s.*, r.request_no 
         FROM stocks s
         JOIN requests r ON s.request_id = r.id
+        WHERE s.company_id = ?
         ORDER BY s.id DESC
-    """)
+    """, (company_id,))
     stocks = [dict(row) for row in c.fetchall()]
     conn.close()
     return stocks
@@ -187,7 +228,7 @@ def add_to_stock(request_id: int):
         return
         
     # Talepten bilgileri al
-    c.execute("SELECT description FROM requests WHERE id = ?", (request_id,))
+    c.execute("SELECT description, company_id FROM requests WHERE id = ?", (request_id,))
     req = c.fetchone()
     if not req:
         conn.close()
@@ -195,8 +236,8 @@ def add_to_stock(request_id: int):
         
     date_str = datetime.now().strftime("%d.%m.%Y")
     c.execute(
-        "INSERT INTO stocks (request_id, item_name, quantity, unit, date_added) VALUES (?,?,?,?,?)",
-        (request_id, req['description'], 1, 'Birim', date_str)
+        "INSERT INTO stocks (request_id, item_name, quantity, unit, date_added, company_id) VALUES (?,?,?,?,?,?)",
+        (request_id, req['description'], 1, 'Birim', date_str, req['company_id'])
     )
     conn.commit()
     conn.close()

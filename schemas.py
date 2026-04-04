@@ -5,6 +5,14 @@ class RequestCreate(BaseModel):
     description: str
     amount: Optional[str] = "Teklif Bekleniyor"
     requester: Optional[str] = "Bilinmiyor"
+    company_id: Optional[int] = 1
+
+class CompanyOut(BaseModel):
+    id: int
+    name: str
+
+class CompanyCreate(BaseModel):
+    name: str
 
 class RequestUpdate(BaseModel):
     id: int
