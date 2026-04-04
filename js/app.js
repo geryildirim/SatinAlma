@@ -342,10 +342,25 @@ const App = {
                     }
                     
                     if (response.status === 401) return this.logout();
+                    
                     if (response.ok) {
-                        this.closeModals();
-                        userForm.reset();
-                        await this.fetchDataAndRender();
+                        const result = await response.json();
+                        const targetUserId = editId || result.id;
+                        
+                        // Handle Company Assignments
+                        const cbs = document.querySelectorAll('.user-company-cb:checked');
+                        const selectedCompanyIds = Array.from(cbs).map(cb => parseInt(cb.value));
+                        
+                        if (targetUserId) {
+                             await fetch(`/api/users/${targetUserId}/companies`, {
+                                method: 'POST',
+                                headers: this.getHeaders(),
+                                body: JSON.stringify({ company_ids: selectedCompanyIds })
+                             });
+                        }
+                        
+                        document.getElementById('userModal').classList.remove('show');
+                        this.renderUsersPage();
                     } else {
                         const err = await response.json();
                         alert(err.detail || "İşlem başarısız");
@@ -829,6 +844,8 @@ const App = {
         document.getElementById('user-username-group').style.display = 'block';
         document.getElementById('user-password-group').style.display = 'block';
         
+        this.renderCompanyCheckboxes([]);
+        
         const modal = document.getElementById('userModal');
         if (modal) modal.classList.add('show');
         lucide.createIcons();
@@ -851,9 +868,77 @@ const App = {
         
         document.getElementById('user-role').value = user.role;
         
+        this.renderCompanyCheckboxes(user.company_ids || []);
+        
         const modal = document.getElementById('userModal');
         if (modal) modal.classList.add('show');
         lucide.createIcons();
+    },
+
+    async renderCompanyCheckboxes(selectedIds = []) {
+        const container = document.getElementById('user-company-checkboxes');
+        if(!container) return;
+        
+        if (!this.companyList) {
+            try {
+                const res = await fetch('/api/companies', { headers: this.getHeaders() });
+                if (res.ok) this.companyList = await res.json();
+            } catch(e) {}
+        }
+        
+        container.innerHTML = '';
+        if(this.companyList) {
+            this.companyList.forEach(c => {
+                const isSelected = selectedIds.includes(c.id);
+                const div = document.createElement('div');
+                div.innerHTML = `<label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-main);">
+                    <input type="checkbox" class="user-company-cb" value="${c.id}" ${isSelected ? 'checked' : ''} style="width:16px;height:16px;">
+                    ${c.name}
+                </label>`;
+                container.appendChild(div);
+            });
+        }
+    },
+    
+    async loadCompaniesManager() {
+        const tbody = document.getElementById('company-management-body');
+        if(!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Yükleniyor...</td></tr>';
+        
+        try {
+            const res = await fetch('/api/companies', { headers: this.getHeaders() });
+            if (res.ok) {
+                const companies = await res.json();
+                tbody.innerHTML = '';
+                this.companyList = companies; 
+                companies.forEach(c => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td><strong>#${c.id}</strong></td><td>${c.name}</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+        } catch(e) { console.error(e); }
+    },
+
+    async createNewCompany() {
+        const input = document.getElementById('new-company-name');
+        if(!input || !input.value) return;
+        try {
+            const response = await fetch('/api/companies', {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ name: input.value })
+            });
+            if (response.ok) {
+                input.value = '';
+                await this.loadCompaniesManager();
+                await this.loadCompanies();
+                alert("Şirket başarıyla eklendi.");
+            } else {
+                const err = await response.json();
+                alert(err.detail || "Şirket eklenemedi.");
+            }
+        } catch (e) { console.error(e); }
     },
 
     closeModals() {
@@ -875,6 +960,11 @@ const App = {
             activeNav.classList.add('active');
             activeNav.style.color = 'var(--primary-color)';
         }
+        
+        if (tabId === 'companies') {
+            this.loadCompaniesManager();
+        }
+        
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 

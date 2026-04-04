@@ -63,6 +63,16 @@ def init_db():
     ''')
 
     c.execute('''
+        CREATE TABLE IF NOT EXISTS user_companies (
+            user_id INTEGER,
+            company_id INTEGER,
+            PRIMARY KEY (user_id, company_id),
+            FOREIGN KEY(user_id) REFERENCES users(id),
+            FOREIGN KEY(company_id) REFERENCES companies(id)
+        )
+    ''')
+
+    c.execute('''
         CREATE TABLE IF NOT EXISTS stocks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             request_id INTEGER,
@@ -106,9 +116,12 @@ def init_db():
     conn.close()
     print("[Veritabanı] Hazır.")
 
-def get_all_companies():
+def get_all_companies(user_role: str = "admin", user_id: int = 0):
     conn = get_connection()
-    rows = [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()]
+    if user_role == "admin":
+        rows = [dict(r) for r in conn.execute("SELECT * FROM companies").fetchall()]
+    else:
+        rows = [dict(r) for r in conn.execute("SELECT c.* FROM companies c JOIN user_companies uc ON c.id=uc.company_id WHERE uc.user_id=?", (user_id,)).fetchall()]
     conn.close()
     return rows
 
@@ -245,6 +258,9 @@ def add_to_stock(request_id: int):
 def get_all_users():
     conn = get_connection()
     users = [dict(u) for u in conn.execute("SELECT id, username, full_name, role FROM users").fetchall()]
+    for u in users:
+        rows = conn.execute("SELECT company_id FROM user_companies WHERE user_id=?", (u['id'],)).fetchall()
+        u['company_ids'] = [r[0] for r in rows]
     conn.close()
     return users
 
@@ -274,7 +290,18 @@ def delete_user(user_id):
 
 def update_user_role(user_id, role):
     conn = get_connection()
-    conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+    c = conn.cursor()
+    c.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+    conn.commit()
+    conn.close()
+    return {"success": True}
+
+def assign_user_companies(user_id: int, company_ids: list):
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM user_companies WHERE user_id=?", (user_id,))
+    for cid in company_ids:
+        c.execute("INSERT INTO user_companies (user_id, company_id) VALUES (?,?)", (user_id, cid))
     conn.commit()
     conn.close()
     return {"success": True}

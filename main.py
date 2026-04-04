@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import List
-from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut
+from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut, UserCompanyAssign
 import database
 
 # Veritabanını başlat
@@ -108,12 +108,17 @@ def update_user_role(user_id: int, data: UserRoleUpdate, current_user: dict = De
     """Bir kullanıcının yetkisini günceller."""
     return database.update_user_role(user_id, data.role)
 
+@app.post("/api/users/{user_id}/companies")
+def assign_user_companies(user_id: int, data: UserCompanyAssign, current_user: dict = Depends(check_admin)):
+    """Bir kullanıcının şirket yetkilerini kaydeder (Sadece Admin)."""
+    return database.assign_user_companies(user_id, data.company_ids)
+
 # ===================== COMPANY MANAGEMENT =====================
 
 @app.get("/api/companies", response_model=List[CompanyOut])
-def get_companies():
-    """Tüm şirketleri listeler."""
-    return database.get_all_companies()
+def get_companies(current_user: dict = Depends(get_current_user)):
+    """Bağlı olunan (veya tüm) şirketleri listeler."""
+    return database.get_all_companies(current_user["role"], current_user["id"])
 
 @app.post("/api/companies")
 def create_company(data: CompanyCreate, current_user: dict = Depends(check_admin)):

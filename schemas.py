@@ -41,6 +41,10 @@ class UserOut(BaseModel):
     username: str
     full_name: str
     role: str
+    company_ids: Optional[List[int]] = []
+
+class UserCompanyAssign(BaseModel):
+    company_ids: List[int]
 
 class Token(BaseModel):
     access_token: str
