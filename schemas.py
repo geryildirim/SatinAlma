@@ -37,3 +37,12 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: UserOut
+
+class StockOut(BaseModel):
+    id: int
+    request_id: int
+    item_name: str
+    quantity: int
+    unit: str
+    date_added: str
+    request_no: str

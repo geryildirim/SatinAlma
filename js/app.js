@@ -179,6 +179,9 @@ const App = {
             this.renderOrdersPage();
             this.renderInvoicesPage();
             this.renderReceivingPage();
+            this.renderStocksPage();
+            // Initial render of stock cards
+            this.renderStockCards();
             if (this.user.role === 'admin') {
                 this.renderUsersPage();
             }
@@ -369,12 +372,21 @@ const App = {
     },
 
     renderDashboardStats(stats) {
-        const ids = ['stat-active', 'stat-pending', 'stat-pos', 'stat-invoices'];
-        const values = [stats.activeRequests, stats.pendingApprovals, stats.activePOs, stats.readyInvoices];
+        const ids = ['stat-active', 'stat-pending', 'stat-pos', 'stat-invoices', 'stat-stock'];
+        const values = [stats.activeRequests, stats.pendingApprovals, stats.activePOs, stats.readyInvoices, 0]; // Stock handled by another fetch usually
         ids.forEach((id, idx) => {
             const el = document.getElementById(id);
             if(el) el.innerText = values[idx] || 0;
         });
+        
+        // Update stock stat separately since it's from /api/stock
+        fetch('/api/stock', { headers: this.getHeaders() })
+            .then(res => res.json())
+            .then(stocks => {
+                const stockEl = document.getElementById('stat-stock-val');
+                if (stockEl) stockEl.innerText = stocks.length || 0;
+            });
+
         const badge = document.getElementById('nav-approval-count');
         if(badge) badge.innerText = stats.pendingApprovals || 0;
     },
@@ -453,6 +465,117 @@ const App = {
             tbody.appendChild(tr);
         });
         lucide.createIcons();
+    },
+
+    async renderStocksPage(filterText = '') {
+        const tbody = document.getElementById('stock-body');
+        const cardsContainer = document.getElementById('stock-cards-container');
+        if (!tbody && !cardsContainer) return;
+
+        try {
+            const res = await fetch('/api/stock', { headers: this.getHeaders() });
+            if (res.status === 401) return this.logout();
+            
+            let stocks = await res.json();
+            this.stocksData = stocks; // Store locally for detail view
+            
+            if (filterText) {
+                const lowerFilter = filterText.toLowerCase();
+                stocks = stocks.filter(s => 
+                    s.item_name.toLowerCase().includes(lowerFilter) || 
+                    s.request_no.toLowerCase().includes(lowerFilter)
+                );
+            }
+
+            // Render Table (hidden by default)
+            if (tbody) {
+                tbody.innerHTML = '';
+                if (stocks.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding: 48px 0;">Ürün bulunamadı.</td></tr>`;
+                } else {
+                    stocks.forEach(item => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td><strong>${item.request_no}</strong></td><td>${item.item_name}</td><td>${item.quantity}</td><td>${item.unit}</td><td>${item.date_added}</td><td style="text-align: right;"><span class="status-badge status-delivered">Stokta</span></td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+
+            // Render Cards (default view)
+            if (cardsContainer) {
+                this.renderStockCards(stocks);
+            }
+
+        } catch (err) {
+            console.error("Stok verisi çekme hatası:", err);
+        }
+    },
+
+    renderStockCards(stocks) {
+        const container = document.getElementById('stock-cards-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (!stocks || stocks.length === 0) {
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 48px; color: var(--text-muted);">
+                <i data-lucide="search-x" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
+                <p>Aradığınız kriterlere uygun ürün bulunamadı.</p>
+            </div>`;
+            lucide.createIcons();
+            return;
+        }
+
+        stocks.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'inventory-card';
+            card.style.cursor = 'pointer';
+            card.onclick = () => this.viewStockDetail(item.id);
+            card.innerHTML = `
+                <div class="inv-card-header">
+                    <div class="inv-card-icon">
+                        <i data-lucide="archive"></i>
+                    </div>
+                    <span class="inv-card-id">${item.request_no}</span>
+                </div>
+                <h3 class="inv-card-title">${item.item_name}</h3>
+                <div class="inv-card-details">
+                    <div class="inv-detail-item">
+                        <span class="inv-detail-label">Miktar</span>
+                        <span class="inv-detail-value">${item.quantity} ${item.unit}</span>
+                    </div>
+                    <div class="inv-detail-item">
+                        <span class="inv-detail-label">Giriş Tarihi</span>
+                        <span class="inv-detail-value">${item.date_added}</span>
+                    </div>
+                </div>
+                <div class="inv-card-footer">
+                    <span class="inv-status">Stokta</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        lucide.createIcons();
+    },
+
+    handleStockSearch(val) {
+        this.renderStocksPage(val);
+    },
+
+    viewStockDetail(id) {
+        const item = this.stocksData.find(s => s.id === id);
+        if (!item) return;
+
+        document.getElementById('stock-detail-title').innerText = item.item_name;
+        document.getElementById('stock-detail-subtitle').innerText = `#${item.request_no}`;
+        document.getElementById('stock-detail-quantity').innerText = `${item.quantity} ${item.unit}`;
+        document.getElementById('stock-detail-date').innerText = item.date_added;
+        document.getElementById('stock-detail-request').innerText = item.request_no;
+
+        const modal = document.getElementById('stockDetailModal');
+        if (modal) {
+            modal.classList.add('show');
+            lucide.createIcons();
+        }
     },
 
     renderUsersPage() {
@@ -572,6 +695,19 @@ const App = {
                 try {
                     const layout = JSON.parse(savedLayout);
                     this.grid.load(layout);
+
+                    // Yeni eklenen ancak layout'ta olmayan itemlar varsa onları da ekle
+                    const currentItems = this.grid.getGridItems();
+                    const currentIds = currentItems.map(item => item.getAttribute('gs-id')).filter(id => id);
+                    
+                    const allHtmlItems = Array.from(gridEl.querySelectorAll('.grid-stack-item'));
+                    allHtmlItems.forEach(htmlItem => {
+                        const id = htmlItem.getAttribute('gs-id');
+                        if (id && !currentIds.includes(id)) {
+                            this.grid.makeWidget(htmlItem);
+                        }
+                    });
+
                 } catch (e) {
                     console.error("Layout load error:", e);
                 }
@@ -579,9 +715,16 @@ const App = {
         }
     },
 
+    resetDashboardLayout() {
+        if(!confirm('Panel yerleşimini varsayılan ayarlara döndürmek istediğinize emin misiniz?')) return;
+        localStorage.removeItem('dashboard-layout');
+        window.location.reload();
+    },
+
     toggleDashboardEditMode() {
         this.isEditMode = !this.isEditMode;
         const btn = document.getElementById('btn-edit-dashboard');
+        const resetBtn = document.getElementById('btn-reset-dashboard');
         
         if (this.isEditMode) {
             if (this.grid) {
@@ -589,6 +732,7 @@ const App = {
                 this.grid.enableMove(true);
                 this.grid.enableResize(true);
             }
+            if (resetBtn) resetBtn.style.display = 'flex';
             if (btn) {
                 btn.innerHTML = '<i data-lucide="check"></i> Yerleşimi Kaydet';
                 btn.style.background = 'var(--success)';
@@ -598,9 +742,12 @@ const App = {
         } else {
             if (this.grid) {
                 this.grid.setStatic(true);
+                this.grid.enableMove(false);
+                this.grid.enableResize(false);
                 const layout = this.grid.save();
                 localStorage.setItem('dashboard-layout', JSON.stringify(layout));
             }
+            if (resetBtn) resetBtn.style.display = 'none';
             if (btn) {
                 btn.innerHTML = '<i data-lucide="layout"></i> Görünümü Düzenle';
                 btn.style.background = 'transparent';
@@ -608,7 +755,7 @@ const App = {
                 btn.style.borderColor = 'var(--surface-border)';
             }
         }
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        lucide.createIcons();
     },
 
     openNewRequestModal() {

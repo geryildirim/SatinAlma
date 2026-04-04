@@ -37,6 +37,18 @@ def init_db():
             role TEXT
         )
     ''')
+
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS stocks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            request_id INTEGER,
+            item_name TEXT,
+            quantity INTEGER DEFAULT 1,
+            unit TEXT DEFAULT 'Adet',
+            date_added TEXT,
+            FOREIGN KEY (request_id) REFERENCES requests (id)
+        )
+    ''')
     
     c.execute("SELECT COUNT(*) FROM requests")
     if c.fetchone()[0] == 0:
@@ -108,11 +120,18 @@ def update_request(req_id: int, status: str, amount: str = None, supplier: str =
         c.execute("UPDATE requests SET status=?, amount=? WHERE id=?", (status, amount, req_id))
     else:
         c.execute("UPDATE requests SET status=? WHERE id=?", (status, req_id))
+    
     if supplier:
         c.execute("UPDATE requests SET supplier=? WHERE id=?", (supplier, req_id))
     if address:
         c.execute("UPDATE requests SET address=? WHERE id=?", (address, req_id))
+    
     conn.commit()
+
+    # Eğer durum 'delivered' ise stoğa ekle
+    if status == 'delivered':
+        add_to_stock(req_id)
+        
     conn.close()
     return {"success": True}
 
@@ -136,6 +155,44 @@ def verify_password(plain_password, hashed_password):
 
 def get_hash(password):
     return pwd_context.hash(password)
+
+def get_all_stocks():
+    conn = get_connection()
+    c = conn.cursor()
+    c.execute("""
+        SELECT s.*, r.request_no 
+        FROM stocks s
+        JOIN requests r ON s.request_id = r.id
+        ORDER BY s.id DESC
+    """)
+    stocks = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return stocks
+
+def add_to_stock(request_id: int):
+    conn = get_connection()
+    c = conn.cursor()
+    
+    # Zaten stokta var mı kontrol et (tekrar eklemeyi önle)
+    c.execute("SELECT id FROM stocks WHERE request_id = ?", (request_id,))
+    if c.fetchone():
+        conn.close()
+        return
+        
+    # Talepten bilgileri al
+    c.execute("SELECT description FROM requests WHERE id = ?", (request_id,))
+    req = c.fetchone()
+    if not req:
+        conn.close()
+        return
+        
+    date_str = datetime.now().strftime("%d.%m.%Y")
+    c.execute(
+        "INSERT INTO stocks (request_id, item_name, quantity, unit, date_added) VALUES (?,?,?,?,?)",
+        (request_id, req['description'], 1, 'Birim', date_str)
+    )
+    conn.commit()
+    conn.close()
 
 def get_all_users():
     conn = get_connection()

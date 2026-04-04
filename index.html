@@ -86,6 +86,10 @@
                     <i data-lucide="receipt"></i>
                     <span>Faturalar</span>
                 </a>
+                <a href="#stock" class="nav-item" data-view="stock">
+                    <i data-lucide="archive"></i>
+                    <span>Stok Yönetimi</span>
+                </a>
             </nav>
             
             <div class="sidebar-footer">
@@ -163,60 +167,77 @@
                             <h1 class="view-title">Sisteme Hoş Geldiniz</h1>
                             <p class="view-subtitle">Satın alma süreçlerinizi ve anlık durumu buradan takip edebilirsiniz.</p>
                         </div>
-                        <button class="outline-btn" id="btn-edit-dashboard" onclick="app.toggleDashboardEditMode()">
-                            <i data-lucide="layout"></i> Görünümü Düzenle
-                        </button>
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <button class="outline-btn" id="btn-reset-dashboard" onclick="app.resetDashboardLayout()" style="display: none; border-color: rgba(255,255,255,0.1); color: var(--text-muted);">
+                                <i data-lucide="refresh-cw"></i> Varsayılana Sıfırla
+                            </button>
+                            <button class="outline-btn" id="btn-edit-dashboard" onclick="app.toggleDashboardEditMode()">
+                                <i data-lucide="layout"></i> Görünümü Düzenle
+                            </button>
+                        </div>
                     </div>
 
                     <div class="grid-stack" id="dashboard-grid">
-                        
-                        <!-- 1. AKTIF TALEPLER -->
-                        <div class="grid-stack-item" gs-id="stat-all" gs-w="3" gs-h="1">
+                        <!-- 1. AKTİF TALEPLER -->
+                        <div class="grid-stack-item" gs-id="stat-active" gs-w="2" gs-h="1" gs-x="0" gs-y="0">
                             <div class="grid-stack-item-content">
                                 <div class="stat-card glass-panel" id="card-all" onclick="app.filterByStatus('all')" style="height:100%; margin:0;">
                                     <div class="stat-icon purple-bg"><i data-lucide="file-output"></i></div>
                                     <div class="stat-data">
                                         <p class="stat-label">Aktif Talepler</p>
-                                        <h3 class="stat-value" id="stat-active-requests">12</h3>
+                                        <h3 class="stat-value" id="stat-active">0</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 2. ONAY BEKLEYEN -->
-                        <div class="grid-stack-item" gs-id="stat-pending" gs-w="3" gs-h="1">
+                        <div class="grid-stack-item" gs-id="stat-pending" gs-w="2" gs-h="1" gs-x="2" gs-y="0">
                             <div class="grid-stack-item-content">
                                 <div class="stat-card glass-panel" id="card-pending" onclick="app.filterByStatus('pending')" style="height:100%; margin:0;">
                                     <div class="stat-icon orange-bg"><i data-lucide="clock"></i></div>
                                     <div class="stat-data">
                                         <p class="stat-label">Onay Bekleyen</p>
-                                        <h3 class="stat-value" id="stat-pending-approvals">5</h3>
+                                        <h3 class="stat-value" id="stat-pending">0</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 3. BEKLEYEN SİPARİŞLER -->
-                        <div class="grid-stack-item" gs-id="stat-po" gs-w="3" gs-h="1">
+                        <div class="grid-stack-item" gs-id="stat-po" gs-w="3" gs-h="1" gs-x="4" gs-y="0">
                             <div class="grid-stack-item-content">
                                 <div class="stat-card glass-panel" id="card-po" onclick="app.filterByStatus('po')" style="height:100%; margin:0;">
                                     <div class="stat-icon blue-bg"><i data-lucide="truck"></i></div>
                                     <div class="stat-data">
                                         <p class="stat-label">Bekleyen Siparişler</p>
-                                        <h3 class="stat-value" id="stat-active-pos">8</h3>
+                                        <h3 class="stat-value" id="stat-pos">0</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 4. ÖDEMEYE HAZIR -->
-                        <div class="grid-stack-item" gs-id="stat-approved" gs-w="3" gs-h="1">
+                        <div class="grid-stack-item" gs-id="stat-invoices" gs-w="3" gs-h="1" gs-x="7" gs-y="0">
                             <div class="grid-stack-item-content">
                                 <div class="stat-card glass-panel" id="card-approved" onclick="app.filterByStatus('approved')" style="height:100%; margin:0;">
                                     <div class="stat-icon green-bg"><i data-lucide="banknote"></i></div>
                                     <div class="stat-data">
                                         <p class="stat-label">Ödemeye Hazır</p>
-                                        <h3 class="stat-value" id="stat-ready-invoices">3</h3>
+                                        <h3 class="stat-value" id="stat-invoices">0</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. STOK DURUMU -->
+                        <div class="grid-stack-item" gs-id="stat-stock" gs-w="2" gs-h="1" gs-x="10" gs-y="0">
+                            <div class="grid-stack-item-content">
+                                <div class="stat-card glass-panel" id="card-stock" onclick="app.switchView('stock')" style="height:100%; margin:0;">
+                                    <div class="stat-icon orange-bg" style="background: rgba(167, 139, 250, 0.2); color: #a78bfa;"><i data-lucide="archive"></i></div>
+                                    <div class="stat-data">
+                                        <p class="stat-label">Stoktaki Ürün</p>
+                                        <h3 class="stat-value" id="stat-stock-val">0</h3>
                                     </div>
                                 </div>
                             </div>
@@ -464,6 +485,50 @@
                                     </tr>
                                 </thead>
                                 <tbody id="receiving-body">
+                                    <!-- DB'den JS ile doldurulacak -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Stock View -->
+                <section id="stock" class="view">
+                    <div class="view-header">
+                        <div>
+                            <h1 class="view-title">Stok ve Envanter</h1>
+                            <p class="view-subtitle">Mal kabulü yapılmış ve kullanıma hazır ürünleri takip edin.</p>
+                        </div>
+                    </div>
+
+                    <div class="stock-view-controls">
+                        <div class="stock-search-wrapper">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="stock-search" placeholder="Ürün adı veya talep no ile ara..." oninput="app.handleStockSearch(this.value)">
+                        </div>
+                    </div>
+
+                    <div id="stock-cards-container" class="stock-cards-grid">
+                        <!-- JS ile doldurulacak -->
+                    </div>
+
+                    <div class="content-card glass-panel" style="margin-top: 32px; display: none;" id="stock-table-view">
+                        <div class="card-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--surface-border); padding-bottom: 16px;">
+                            <h3 style="font-weight: 600; color: #10b981;">Envanter Detay Listesi</h3>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Talep No</th>
+                                        <th>Ürün / Açıklama</th>
+                                        <th>Miktar</th>
+                                        <th>Birim</th>
+                                        <th>Stoka Giriş</th>
+                                        <th style="text-align: right;">Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stock-body">
                                     <!-- DB'den JS ile doldurulacak -->
                                 </tbody>
                             </table>
@@ -970,7 +1035,63 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=27"></script>
+    <!-- Stock Detail Modal -->
+    <div id="stockDetailModal" class="modal">
+        <div class="modal-backdrop" onclick="app.closeModals()"></div>
+        <div class="modal-content glass-panel" style="max-width: 600px;">
+            <div class="modal-header">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div class="inv-card-icon" style="width: 54px; height: 54px; border-radius: 16px;">
+                        <i data-lucide="package"></i>
+                    </div>
+                    <div>
+                        <h2 id="stock-detail-title" style="margin: 0; font-size: 1.4rem;">Ürün Detayı</h2>
+                        <p id="stock-detail-subtitle" style="margin: 4px 0 0; color: var(--text-muted); font-size: 0.9rem;">#PR-2026-000</p>
+                    </div>
+                </div>
+                <button class="close-btn" onclick="app.closeModals()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 24px;">
+                <div class="stock-detail-grid">
+                    <div class="stat-card glass-panel" style="background: rgba(255,255,255,0.02); height: auto; padding: 20px;">
+                        <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: #10b981;"><i data-lucide="layers"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Mevcut Stok</span>
+                            <span class="stat-value" id="stock-detail-quantity" style="font-size: 1.5rem;">0 Adet</span>
+                        </div>
+                    </div>
+                    <div class="stat-card glass-panel" style="background: rgba(255,255,255,0.02); height: auto; padding: 20px;">
+                        <div class="stat-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--primary);"><i data-lucide="calendar"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Giriş Tarihi</span>
+                            <span class="stat-value" id="stock-detail-date" style="font-size: 1.1rem; color: var(--text-main);">01.01.2026</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="content-card" style="margin-top: 24px; background: rgba(255,255,255,0.01); border: 1px dashed var(--surface-border); border-radius: 16px;">
+                    <div style="padding: 20px;">
+                        <h4 style="margin: 0 0 16px; font-weight: 600; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px;">Süreç Bilgileri</h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">Orijinal Talep No</span>
+                                <span id="stock-detail-request" style="font-weight: 600; color: var(--text-main);">#PR-2026-000</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--text-muted); font-size: 0.9rem;">Mevcut Durum</span>
+                                <span class="inv-status">Stokta Kullanıma Hazır</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding-top: 24px; border-top: 1px solid var(--surface-border); margin-top: 24px;">
+                <button class="btn outline-btn" onclick="app.closeModals()" style="width: 100%;">Pencereyi Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js?v=36"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import List
-from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate
+from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut
 import database
 
 # Veritabanını başlat
@@ -142,6 +142,11 @@ def update_request(data: RequestUpdate, current_user: dict = Depends(check_admin
 def delete_request(req_id: int, current_user: dict = Depends(check_admin)):
     """Bir talebi tamamen siler. (Sadece Admin)"""
     return database.delete_request(req_id)
+
+@app.get("/api/stock", response_model=List[StockOut])
+def get_stock(current_user: dict = Depends(get_current_user)):
+    """Tüm stok verilerini döndürür."""
+    return database.get_all_stocks()
 
 # ===================== STATIC FILES (Frontend) =====================
 
