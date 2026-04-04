@@ -27,6 +27,7 @@
             if (token && user) {
                 document.body.classList.remove('login-pending');
                 // Hide overlay immediately if authed
+                const CACHE_NAME = 'corpbuy-v9';
                 const style = document.createElement('style');
                 style.innerHTML = '#loginOverlay { display: none !important; pointer-events: none !important; }';
                 document.head.appendChild(style);
@@ -1019,7 +1020,7 @@
                         <label>Yetki / Rol Tanımı</label>
                         <div class="input-wrapper">
                             <i data-lucide="shield-check"></i>
-                            <select id="user-role" required style="width: 100%; background: transparent; color: white; border: none; padding: 12px 16px; outline: none; appearance: none;">
+                            <select id="user-role" required>
                                 <option value="user" style="color: #000;">Standart Kullanıcı (Talep Oluşturma)</option>
                                 <option value="admin" style="color: #000;">Sistem Yöneticisi (Onay & Yönetim)</option>
                             </select>
@@ -1091,7 +1092,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=36"></script>
+    <script src="js/app.js?v=37"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
