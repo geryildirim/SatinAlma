@@ -445,6 +445,16 @@ body.login-pending {
     background: rgba(255,255,255,0.05);
 }
 
+.logout-header-btn {
+    color: var(--text-muted);
+}
+
+.logout-header-btn:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
 .notification-dot {
     position: absolute;
     top: 10px;

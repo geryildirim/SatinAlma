@@ -162,6 +162,11 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <button class="icon-btn logout-header-btn" title="Çıkış Yap" onclick="app.logout()">
+                        <i data-lucide="log-out"></i>
+                    </button>
+
                     <button class="primary-btn" onclick="app.openNewRequestModal()">
                         <i data-lucide="plus"></i>
                         Yeni Talep
@@ -515,6 +520,11 @@
                         <div>
                             <h1 class="view-title">Depo ve Mal Kabul</h1>
                             <p class="view-subtitle">Tedarikçiden gelen fiziksel teslimatları sisteme girin ve siparişleri kapatın.</p>
+                        </div>
+                        <div class="header-actions">
+                            <button class="btn primary-btn" onclick="app.openManualStockModal()">
+                                <i data-lucide="package-plus" style="width:18px;"></i> Manuel Mal Girişi
+                            </button>
                         </div>
                     </div>
                     <div class="content-card glass-panel" style="min-height: 500px;">
@@ -1041,7 +1051,7 @@
         <div class="modal-backdrop" onclick="app.closeModals()"></div>
         <div class="modal-content glass-panel" style="max-width: 500px;">
             <div class="modal-header">
-                <h2>Sistem Kullanıcısı Tanımla</h2>
+                <h2 id="user-modal-title">Sistem Kullanıcısı Tanımla</h2>
                 <button class="close-btn" type="button" onclick="app.closeModals()">
                     <i data-lucide="x"></i>
                 </button>
@@ -1064,7 +1074,7 @@
                         </div>
                     </div>
                     <div class="form-group" id="user-password-group">
-                        <label>Şifre</label>
+                        <label>Şifre <span id="pwd-optional-hint" style="display:none; color:var(--text-muted); font-size: 0.75rem; font-weight: normal;">(Değiştirmek istemiyorsanız boş bırakın)</span></label>
                         <div class="input-wrapper">
                             <i data-lucide="lock"></i>
                             <input type="password" id="user-password" placeholder="••••••••" required>
@@ -1087,9 +1097,9 @@
                             <!-- JS ile doldurulacak -->
                         </div>
                     </div>
-                    <div class="modal-footer" style="padding: 0; margin-top: 32px; border:none;">
-                        <button type="button" class="btn outline-btn" onclick="app.closeModals()">Vazgeç</button>
-                        <button type="submit" class="btn primary-btn submit-btn"><i data-lucide="save" style="width:16px;"></i> Kaydet ve Oluştur</button>
+                    <div class="modal-footer" style="padding: 0; margin-top: 32px; border:none; display: flex; gap: 12px;">
+                        <button type="button" class="btn primary-btn" onclick="app.closeModals()" style="flex: 1; justify-content: center;">Vazgeç</button>
+                        <button type="submit" class="btn primary-btn submit-btn" id="user-submit-btn" style="flex: 1; justify-content: center; margin: 0;"><i data-lucide="save" style="width:16px;"></i> Kaydet ve Oluştur</button>
                     </div>
                 </form>
             </div>
@@ -1152,7 +1162,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=39"></script>
+    <script src="js/app.js?v=44"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -1164,6 +1174,65 @@
             });
         }
     </script>
+
+    <!-- Manual Stock Receipt Modal -->
+    <div id="manualStockModal" class="modal">
+        <div class="modal-content glass-panel" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2>Manuel Mal Kabul Girişi</h2>
+                <button class="close-btn" type="button" onclick="app.closeModals()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="manualStockForm" onsubmit="event.preventDefault(); app.saveManualStock();">
+                    <div class="form-group">
+                        <label>Ürün Adı / Açıklama</label>
+                        <div class="input-wrapper">
+                            <i data-lucide="package"></i>
+                            <input type="text" id="manual-stock-name" placeholder="Örn: A4 Fotokopi Kağıdı" required>
+                        </div>
+                    </div>
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label>Miktar</label>
+                            <div class="input-wrapper">
+                                <i data-lucide="hash"></i>
+                                <input type="number" id="manual-stock-quantity" placeholder="10" required min="1">
+                            </div>
+                        </div>
+                        <div>
+                            <label>Birim</label>
+                            <div class="input-wrapper">
+                                <i data-lucide="layers"></i>
+                                <select id="manual-stock-unit">
+                                    <option value="Adet">Adet</option>
+                                    <option value="KG">KG</option>
+                                    <option value="Metre">Metre</option>
+                                    <option value="Paket">Paket</option>
+                                    <option value="Koli">Koli</option>
+                                    <option value="Litre">Litre</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Tedarikçi (Opsiyonel)</label>
+                        <div class="input-wrapper">
+                            <i data-lucide="truck"></i>
+                            <input type="text" id="manual-stock-supplier" placeholder="Örn: ABC Kırtasiye Ltd. Şti.">
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="padding: 0; margin-top: 32px; border:none; display: flex; gap: 12px;">
+                        <button type="button" class="btn primary-btn" onclick="app.closeModals()" style="flex: 1; justify-content: center;">Vazgeç</button>
+                        <button type="submit" class="btn primary-btn" style="flex: 1; justify-content: center;">
+                            <i data-lucide="check" style="width:16px;"></i> Stoğa Giriş Yap
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal: Company Modal -->
     <div class="modal" id="companyModal">

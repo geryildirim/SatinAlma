@@ -326,11 +326,25 @@ const App = {
                 try {
                     let response;
                     if (editId) {
-                        // Edit Mode: Only role update as requested
-                        response = await fetch(`/api/users/${editId}/role`, {
+                        // Unified Update Mode
+                        const updateData = {
+                            username: username,
+                            full_name: fullName,
+                            role: role
+                        };
+                        // Only send password if it's not the dummy value and not empty
+                        if (password && password !== '********' && password.trim() !== '') {
+                            updateData.password = password;
+                        }
+                        
+                        // Handle Company Assignments inside the update data for cleaner flow
+                        const cbs = document.querySelectorAll('.user-company-cb:checked');
+                        updateData.company_ids = Array.from(cbs).map(cb => parseInt(cb.value));
+
+                        response = await fetch(`/api/users/${editId}`, {
                             method: 'PUT',
                             headers: this.getHeaders(),
-                            body: JSON.stringify({ role })
+                            body: JSON.stringify(updateData)
                         });
                     } else {
                         // Create Mode
@@ -347,16 +361,15 @@ const App = {
                         const result = await response.json();
                         const targetUserId = editId || result.id;
                         
-                        // Handle Company Assignments
-                        const cbs = document.querySelectorAll('.user-company-cb:checked');
-                        const selectedCompanyIds = Array.from(cbs).map(cb => parseInt(cb.value));
-                        
-                        if (targetUserId) {
-                             await fetch(`/api/users/${targetUserId}/companies`, {
+                        // If it was a new user, assign company IDs now
+                        if (!editId && targetUserId) {
+                            const cbs = document.querySelectorAll('.user-company-cb:checked');
+                            const selectedCompanyIds = Array.from(cbs).map(cb => parseInt(cb.value));
+                            await fetch(`/api/users/${targetUserId}/companies`, {
                                 method: 'POST',
                                 headers: this.getHeaders(),
                                 body: JSON.stringify({ company_ids: selectedCompanyIds })
-                             });
+                            });
                         }
                         
                         document.getElementById('userModal').classList.remove('show');
@@ -659,6 +672,7 @@ const App = {
                 return res.json();
             })
             .then(users => {
+                this.usersDataList = users; // Store locally for lookup by ID
                 tbody.innerHTML = '';
                 if (!users || users.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 48px 0;">Kayıtlı kullanıcı bulunmuyor.</td></tr>`;
@@ -673,7 +687,7 @@ const App = {
                         <td>${u.full_name}</td>
                         <td>${roleBadge}</td>
                         <td style="text-align: right;">
-                            <button class="outline-btn" onclick='app.editUser(${JSON.stringify(u)})' style="margin-right: 8px;">
+                            <button class="outline-btn" onclick="app.editUser(${u.id})" style="margin-right: 8px;">
                                 <i data-lucide="edit" style="width:14px; color:var(--info);"></i>
                             </button>
                             <button class="outline-btn" onclick="app.deleteUser(${u.id})" ${u.username === 'admin' ? 'disabled style="opacity:0.5;"' : ''}>
@@ -839,14 +853,21 @@ const App = {
     },
 
     openUserModal() {
-        document.getElementById('userForm').reset();
-        document.getElementById('edit-user-id').value = '';
-        document.querySelector('#userModal h2').innerText = 'Sistem Kullanıcısı Tanımla';
-        document.querySelector('#userModal .submit-btn').innerHTML = '<i data-lucide="save" style="width:16px;"></i> Kaydet ve Oluştur';
+        const form = document.getElementById('userForm');
+        if (form) form.reset();
         
+        document.getElementById('edit-user-id').value = '';
+        document.getElementById('user-modal-title').innerText = 'Sistem Kullanıcısı Tanımla';
+        document.getElementById('user-submit-btn').innerHTML = '<i data-lucide="save" style="width:16px;"></i> Kaydet ve Oluştur';
+        
+        // Ensure all groups are visible
         document.getElementById('user-fullname-group').style.display = 'block';
         document.getElementById('user-username-group').style.display = 'block';
         document.getElementById('user-password-group').style.display = 'block';
+        
+        document.getElementById('user-password').required = true;
+        document.getElementById('user-password').placeholder = '••••••••';
+        document.getElementById('pwd-optional-hint').style.display = 'none';
         
         this.renderCompanyCheckboxes([]);
         
@@ -855,20 +876,32 @@ const App = {
         lucide.createIcons();
     },
 
-    editUser(user) {
-        document.getElementById('userForm').reset();
+    editUser(userId) {
+        // Find user by ID in the list we stored during render
+        const user = this.usersDataList ? this.usersDataList.find(u => u.id === userId) : null;
+        if (!user) {
+            console.error("User not found for ID:", userId);
+            return;
+        }
+
+        const form = document.getElementById('userForm');
+        if (form) form.reset();
+        
         document.getElementById('edit-user-id').value = user.id;
-        document.querySelector('#userModal h2').innerText = 'Kullanıcı Yetkisi Düzenle';
-        document.querySelector('#userModal .submit-btn').innerHTML = '<i data-lucide="check" style="width:16px;"></i> Değişiklikleri Uygula';
+        document.getElementById('user-modal-title').innerText = 'Kullanıcı Bilgilerini Düzenle';
+        document.getElementById('user-submit-btn').innerHTML = '<i data-lucide="check" style="width:16px;"></i> Değişiklikleri Kaydet';
         
-        // Hide name/pass for role-only edit to keep it clean, but set values
-        document.getElementById('user-fullname').value = user.full_name;
-        document.getElementById('user-username').value = user.username;
-        document.getElementById('user-password').value = '********'; // Dummy
+        // Ensure all groups are visible
+        document.getElementById('user-fullname-group').style.display = 'block';
+        document.getElementById('user-username-group').style.display = 'block';
+        document.getElementById('user-password-group').style.display = 'block';
         
-        document.getElementById('user-fullname-group').style.display = 'none';
-        document.getElementById('user-username-group').style.display = 'none';
-        document.getElementById('user-password-group').style.display = 'none';
+        document.getElementById('user-fullname').value = user.full_name || '';
+        document.getElementById('user-username').value = user.username || '';
+        document.getElementById('user-password').value = ''; 
+        document.getElementById('user-password').required = false;
+        document.getElementById('user-password').placeholder = 'Değiştirmek istemiyorsanız boş bırakın';
+        document.getElementById('pwd-optional-hint').style.display = 'inline';
         
         document.getElementById('user-role').value = user.role;
         
@@ -877,6 +910,45 @@ const App = {
         const modal = document.getElementById('userModal');
         if (modal) modal.classList.add('show');
         lucide.createIcons();
+    },
+
+    openManualStockModal() {
+        const form = document.getElementById('manualStockForm');
+        if (form) form.reset();
+        
+        const modal = document.getElementById('manualStockModal');
+        if (modal) modal.classList.add('show');
+        lucide.createIcons();
+    },
+
+    async saveManualStock() {
+        const data = {
+            item_name: document.getElementById('manual-stock-name').value,
+            quantity: parseInt(document.getElementById('manual-stock-quantity').value),
+            unit: document.getElementById('manual-stock-unit').value,
+            supplier: document.getElementById('manual-stock-supplier').value,
+            company_id: parseInt(localStorage.getItem('corpbuy_company_id') || '1')
+        };
+        
+        try {
+            const res = await fetch('/api/stock/manual', {
+                method: 'POST',
+                headers: this.getHeaders(),
+                body: JSON.stringify(data)
+            });
+            
+            if (res.ok) {
+                this.showNotification('Mal girişi başarıyla yapıldı.', 'success');
+                this.closeModals();
+                this.renderStockPage(); // Refresh stocks
+                this.renderReceivingPage(); // Refresh receiving if needed
+            } else {
+                this.showNotification('Hata oluştu.', 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            this.showNotification('Bağlantı hatası.', 'error');
+        }
     },
 
     async renderCompanyCheckboxes(selectedIds = []) {

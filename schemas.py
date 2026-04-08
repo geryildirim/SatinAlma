@@ -48,6 +48,20 @@ class UserCreate(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: str
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    company_ids: Optional[List[int]] = None
+
+class StockManualCreate(BaseModel):
+    item_name: str
+    quantity: int
+    unit: str
+    company_id: int
+    supplier: Optional[str] = ""
+
 class UserOut(BaseModel):
     id: int
     username: str

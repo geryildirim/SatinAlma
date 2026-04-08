@@ -285,6 +285,29 @@ def add_to_stock(request_id: int):
     conn.commit()
     conn.close()
 
+def add_manual_stock(item_name, quantity, unit, company_id, supplier=''):
+    conn = get_connection()
+    c = conn.cursor()
+    
+    date_str = datetime.now().strftime("%d.%m.%Y")
+    request_no = f"MAN-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    
+    # Sanal bir talep oluştur
+    c.execute(
+        "INSERT INTO requests (request_no, description, status, date, supplier, company_id) VALUES (?,?,?,?,?,?)",
+        (request_no, item_name, 'delivered', date_str, supplier, company_id)
+    )
+    request_id = c.lastrowid
+    
+    # Stoğa ekle
+    c.execute(
+        "INSERT INTO stocks (request_id, item_name, quantity, unit, date_added, company_id) VALUES (?,?,?,?,?,?)",
+        (request_id, item_name, quantity, unit, date_str, company_id)
+    )
+    conn.commit()
+    conn.close()
+    return {"id": request_id, "success": True}
+
 def get_all_users():
     conn = get_connection()
     users = [dict(u) for u in conn.execute("SELECT id, username, full_name, role FROM users").fetchall()]
@@ -325,6 +348,26 @@ def update_user_role(user_id, role):
     conn.commit()
     conn.close()
     return {"success": True}
+
+def update_user(user_id, username=None, full_name=None, password=None, role=None):
+    conn = get_connection()
+    c = conn.cursor()
+    try:
+        if username:
+            c.execute("UPDATE users SET username = ? WHERE id = ?", (username, user_id))
+        if full_name:
+            c.execute("UPDATE users SET full_name = ? WHERE id = ?", (full_name, user_id))
+        if role:
+            c.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+        if password:
+            hashed_pw = get_hash(password)
+            c.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (hashed_pw, user_id))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
 
 def assign_user_companies(user_id: int, company_ids: list):
     conn = get_connection()

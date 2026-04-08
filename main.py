@@ -5,7 +5,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import List
-from schemas import RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut, UserCompanyAssign
+from schemas import (
+    RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut, UserCompanyAssign, UserUpdate, StockManualCreate
+)
 import database
 
 # Veritabanını başlat
@@ -112,6 +114,26 @@ def update_user_role(user_id: int, data: UserRoleUpdate, current_user: dict = De
 def assign_user_companies(user_id: int, data: UserCompanyAssign, current_user: dict = Depends(check_admin)):
     """Bir kullanıcının şirket yetkilerini kaydeder (Sadece Admin)."""
     return database.assign_user_companies(user_id, data.company_ids)
+
+@app.put("/api/users/{user_id}")
+def update_user_details(user_id: int, data: UserUpdate, current_user: dict = Depends(check_admin)):
+    """Kullanıcı bilgilerini günceller."""
+    # Bilgileri güncelle
+    success = database.update_user(
+        user_id, 
+        username=data.username, 
+        full_name=data.full_name, 
+        password=data.password,
+        role=data.role
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Kullanıcı adı kullanımda")
+    
+    # Eğer şirketler gönderilmişse onları da güncelle
+    if data.company_ids is not None:
+        database.assign_user_companies(user_id, data.company_ids)
+        
+    return {"success": True}
 
 # ===================== COMPANY MANAGEMENT =====================
 
@@ -416,6 +438,17 @@ def delete_request(req_id: int, current_user: dict = Depends(check_admin)):
 def get_stock(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Tüm stok verilerini döndürür."""
     return database.get_all_stocks(company_id)
+
+@app.post("/api/stock/manual")
+def add_manual_stock(data: StockManualCreate, current_user: dict = Depends(get_current_user)):
+    """Sisteme manuel stok girişi yapar."""
+    return database.add_manual_stock(
+        item_name=data.item_name,
+        quantity=data.quantity,
+        unit=data.unit,
+        company_id=data.company_id,
+        supplier=data.supplier
+    )
 
 # ===================== STATIC FILES (Frontend) =====================
 
