@@ -1,16 +1,17 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends, status, Request, Response
+from fastapi import FastAPI, HTTPException, Depends, status, Request, Response, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Dict
 from schemas import (
     RequestCreate, RequestUpdate, UserLogin, UserOut, Token, UserCreate, UserRoleUpdate, StockOut, CompanyCreate, CompanyOut, UserCompanyAssign, UserUpdate, StockManualCreate
 )
 import database
+import email_service
 
 # Load environment variables
 load_dotenv()
@@ -416,15 +417,46 @@ def get_stats(company_id: int = 1, current_user: dict = Depends(get_current_user
     """Dashboard istatistiklerini döner."""
     return database.get_stats(company_id)
 
+@app.get("/api/settings")
+def get_user_settings(current_user: dict = Depends(check_admin)):
+    """Sistem/Bildirim ayarlarını getirir."""
+    return database.get_settings()
+
+@app.post("/api/settings")
+def update_user_settings(settings: Dict[str, str], current_user: dict = Depends(check_admin)):
+    """Sistem/Bildirim ayarlarını günceller."""
+    database.update_settings(settings)
+    return {"success": True}
+
 @app.post("/api/requests")
-def create_request(data: RequestCreate, current_user: dict = Depends(get_current_user)):
+def create_request(data: RequestCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Yeni bir satın alma talebi oluşturur."""
     result = database.create_request(data.description, data.amount, data.requester, data.company_id)
+    if "request_no" in result:
+        sys_settings = database.get_settings()
+        if sys_settings.get("notify_new_request") == "true":
+            background_tasks.add_task(
+                email_service.notify_new_request, 
+                result["request_no"], 
+                data.description, 
+                data.amount, 
+                data.requester
+            )
     return result
 
 @app.post("/api/requests/update")
-def update_request(data: RequestUpdate, current_user: dict = Depends(check_admin)):
+def update_request(data: RequestUpdate, background_tasks: BackgroundTasks, current_user: dict = Depends(check_admin)):
     """Mevcut bir talebin durumunu günceller. (Sadece Admin)"""
+    # Mevcut talebin açıklamasını almak için:
+    reqs = database.get_all_requests()
+    description = ""
+    req_no = ""
+    for r in reqs:
+        if r['id'] == data.id:
+            description = r['description']
+            req_no = r['request_no']
+            break
+
     result = database.update_request(
         req_id=data.id,
         status=data.status,
@@ -432,6 +464,25 @@ def update_request(data: RequestUpdate, current_user: dict = Depends(check_admin
         supplier=data.supplier,
         address=data.address
     )
+    if req_no and data.status in ["approved", "rejected", "po", "delivered", "paid"]:
+        sys_settings = database.get_settings()
+        send_mail = False
+        
+        if data.status == "approved" and sys_settings.get("notify_approved") == "true":
+            send_mail = True
+        elif data.status == "rejected" and sys_settings.get("notify_rejected") == "true":
+            send_mail = True
+        elif data.status in ["po", "delivered", "paid"] and sys_settings.get("notify_operation") == "true":
+            send_mail = True
+
+        if send_mail:
+            background_tasks.add_task(
+                email_service.notify_status_change,
+                req_no,
+                data.status,
+                description
+            )
+        
     return result
 
 @app.delete("/api/requests/{req_id}")

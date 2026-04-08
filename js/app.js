@@ -42,6 +42,7 @@ const App = {
                 this.bindNav();
                 this.bindForms();
                 await this.loadCompanies();
+                await this.loadSettings();
                 await this.fetchDataAndRender();
             }
             this.bindLogin();
@@ -1155,8 +1156,75 @@ const App = {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
-    saveSettings() {
-        alert("Profil ayarları başarıyla kaydedildi.");
+    async loadSettings() {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await fetch('/api/settings', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const settings = await res.json();
+                // Set toggles based on DB value
+                const toggleMap = {
+                    'notify_new_request': 'setting-notify_new_request',
+                    'notify_approved': 'setting-notify_approved',
+                    'notify_rejected': 'setting-notify_rejected',
+                    'notify_operation': 'setting-notify_operation'
+                };
+                for (const [key, id] of Object.entries(toggleMap)) {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.checked = settings[key] === 'true';
+                    }
+                }
+                // Set text fields
+                const textFields = ['smtp_server', 'smtp_port', 'smtp_user', 'smtp_password', 'notify_email'];
+                for (const key of textFields) {
+                    const el = document.getElementById(`setting-${key}`);
+                    if (el && settings[key] !== undefined) {
+                        el.value = settings[key];
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Settings load failed:", e);
+        }
+    },
+
+    async saveSettings() {
+        // Collect checkbox values
+        const payload = {
+            notify_new_request: document.getElementById('setting-notify_new_request')?.checked ? 'true' : 'false',
+            notify_approved: document.getElementById('setting-notify_approved')?.checked ? 'true' : 'false',
+            notify_rejected: document.getElementById('setting-notify_rejected')?.checked ? 'true' : 'false',
+            notify_operation: document.getElementById('setting-notify_operation')?.checked ? 'true' : 'false',
+            smtp_server: document.getElementById('setting-smtp_server')?.value || '',
+            smtp_port: document.getElementById('setting-smtp_port')?.value || '',
+            smtp_user: document.getElementById('setting-smtp_user')?.value || '',
+            smtp_password: document.getElementById('setting-smtp_password')?.value || '',
+            notify_email: document.getElementById('setting-notify_email')?.value || ''
+        };
+
+        try {
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                alert("Bildirim ayarları başarıyla kaydedildi.");
+            } else {
+                alert("Ayarlar kaydedilirken hata oluştu.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Bağlantı hatası.");
+        }
     },
 
     updatePreview() {
@@ -1198,7 +1266,7 @@ const App = {
         }
         filteredData.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}</td><td>${req.amount}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.date}</td>`;
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}</td><td>${this.escapeHTML(req.amount)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.date)}</td>`;
             tbody.appendChild(tr);
         });
     }

@@ -9,7 +9,7 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="stylesheet" href="css/styles.css?v=39">
+    <link rel="stylesheet" href="css/styles.css?v=49">
     <!-- Google Fonts for modern typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Lucide Icons -->
@@ -284,7 +284,7 @@
                                 <div class="content-card glass-panel full-height-card" style="display: flex; flex-direction: column;">
                                     <div class="card-header">
                                         <h3 id="table-title">Son Talepler</h3>
-                                        <button class="text-btn" onclick="app.filterByStatus('all')">Tümünü Gör</button>
+                                        <button class="text-btn" onclick="app.switchView('requests')">Tümünü Gör</button>
                                     </div>
                                     <div class="table-responsive" style="flex-grow: 1; overflow-y: auto;">
                                         <table class="data-table">
@@ -639,6 +639,7 @@
                                 <li class="settings-nav-item active" onclick="app.switchSettingsTab('profile')" id="nav-profile" style="padding: 12px 16px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="user"></i> Profil Bilgileri</li>
                                 <li class="settings-nav-item" onclick="app.switchSettingsTab('notifications')" id="nav-notifications" style="padding: 12px 16px; border-radius: 8px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="bell"></i> Bildirimler</li>
                                 <li class="settings-nav-item" onclick="app.switchSettingsTab('security')" id="nav-security" style="padding: 12px 16px; border-radius: 8px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="shield"></i> Güvenlik</li>
+                                <li class="settings-nav-item" onclick="app.switchSettingsTab('server')" id="nav-server" style="padding: 12px 16px; border-radius: 8px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 12px; transition: 0.3s;"><i data-lucide="server"></i> E-posta Sunucusu</li>
                             </ul>
                         </div>
                         
@@ -680,33 +681,44 @@
                                     <div class="form-group">
                                         <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 12px;">
                                             <div>
-                                                <span style="display:block; color:var(--text-main); font-weight: 500;">E-posta bildirimleri al</span>
-                                                <span style="font-size:0.85rem; color:var(--text-muted);">Tüm platform aktiviteleri e-posta adresinize gönderilir</span>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Yeni Talep Bildirimi</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Sisteme yeni bir satın alma talebi girildiğinde e-posta gönder</span>
                                             </div>
                                             <label class="toggle-switch">
-                                                <input type="checkbox" id="setting-email-notif" checked>
+                                                <input type="checkbox" id="setting-notify_new_request" checked>
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
                                         
                                         <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 12px;">
                                             <div>
-                                                <span style="display:block; color:var(--text-main); font-weight: 500;">SMS bildirimleri (Kritik İşlemler)</span>
-                                                <span style="font-size:0.85rem; color:var(--text-muted);">Sadece onay bekleyen acil siparişlerde bildir</span>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Onaylanan Talepler</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Bir talep yöneticiler tarafından onaylandığında bildir</span>
                                             </div>
                                             <label class="toggle-switch">
-                                                <input type="checkbox" id="setting-sys-notif">
+                                                <input type="checkbox" id="setting-notify_approved" checked>
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+
+                                        <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px; margin-bottom: 12px;">
+                                            <div>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Reddedilen Talepler</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Bir talep yöneticiler tarafından reddedildiğinde bildir</span>
+                                            </div>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" id="setting-notify_rejected" checked>
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
 
                                         <div class="switch-container" style="display: flex; justify-content: space-between; align-items: center; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 8px;">
                                             <div>
-                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Pazarlama e-postaları</span>
-                                                <span style="font-size:0.85rem; color:var(--text-muted);">CorpBuy kampanya ve güncellemelerinden haberdar olun</span>
+                                                <span style="display:block; color:var(--text-main); font-weight: 500;">Operasyon Bildirimleri</span>
+                                                <span style="font-size:0.85rem; color:var(--text-muted);">Sipariş geçildiğinde, teslim alındığında veya ödendiğinde bildir</span>
                                             </div>
                                             <label class="toggle-switch">
-                                                <input type="checkbox" id="setting-marketing-notif">
+                                                <input type="checkbox" id="setting-notify_operation" checked>
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
@@ -754,6 +766,41 @@
                                 </form>
                             </div>
 
+                            <!-- Server Settings Tab (SMTP) -->
+                            <div id="settings-server" class="settings-tab" style="display: none;">
+                                <h3 style="margin-bottom: 24px; color: var(--text-main); font-weight: 600; font-size: 1.3rem;">E-posta Sunucu Ayarları (SMTP)</h3>
+                                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 24px;">Sistemin bildirim e-postaları atabilmesi için SMTP sunucu bilgilerinizi tanımlayın.</p>
+                                <form onsubmit="event.preventDefault(); app.saveSettings();">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Sunucu Adresi (Host)</label>
+                                            <input type="text" id="setting-smtp_server" placeholder="Örn: smtp.gmail.com">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Sunucu Portu</label>
+                                            <input type="number" id="setting-smtp_port" placeholder="Örn: 587 veya 465">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>Kullanıcı Adı / E-posta</label>
+                                            <input type="email" id="setting-smtp_user" placeholder="E-posta adresini girin...">
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Uygulama/Mail Şifresi</label>
+                                            <input type="password" id="setting-smtp_password" placeholder="Şifreniz gizli kalacaktır">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Sistem Bildirimlerinin Gideceği E-posta Adresi (Alıcı)</label>
+                                        <input type="email" id="setting-notify_email" placeholder="Bildirim almak istediğiniz adres">
+                                    </div>
+                                    
+                                    <div style="margin-top: 32px; display:flex; justify-content: flex-end; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.05);">
+                                        <button type="submit" class="btn primary-btn"><i data-lucide="save"></i> SMTP Ayarlarını Kaydet</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -1162,7 +1209,7 @@
         </div>
     </div>
 
-    <script src="js/app.js?v=45"></script>
+    <script src="js/app.js?v=49"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

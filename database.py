@@ -115,6 +115,29 @@ def init_db():
         c.executemany("INSERT INTO requests (request_no, description, amount, status, date) VALUES (?,?,?,?,?)", sample_data)
         conn.commit()
 
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+    
+    # Varsayılan ayarları yükle
+    default_settings = [
+        ("notify_new_request", "true"),
+        ("notify_approved", "true"),
+        ("notify_rejected", "true"),
+        ("notify_operation", "true"),
+        ("smtp_server", ""),
+        ("smtp_port", "587"),
+        ("smtp_user", ""),
+        ("smtp_password", ""),
+        ("notify_email", "admin@localhost")
+    ]
+    for key, val in default_settings:
+        c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, val))
+    conn.commit()
+
     # Varsayılan kullanıcıları ekle
     c.execute("SELECT COUNT(*) FROM users")
     if c.fetchone()[0] == 0:
@@ -378,3 +401,27 @@ def assign_user_companies(user_id: int, company_ids: list):
     conn.commit()
     conn.close()
     return {"success": True}
+
+def get_settings():
+    conn = get_connection()
+    c = conn.cursor()
+    # Eger tablo yoksa patlamasin diye onlem (tam anlamiyla baslatilmadiginda)
+    try:
+        rows = c.execute("SELECT key, value FROM settings").fetchall()
+    except:
+        rows = []
+    conn.close()
+    settings = {}
+    for r in rows:
+        settings[r['key']] = r['value']
+    return settings
+
+def update_settings(settings_dict: dict):
+    conn = get_connection()
+    c = conn.cursor()
+    for key, value in settings_dict.items():
+        # Insert or replace mantigi
+        c.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value=?", (key, str(value).lower(), str(value).lower()))
+    conn.commit()
+    conn.close()
+    return True

@@ -704,6 +704,10 @@ body.login-pending {
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
 }
 
 .status-pending { background: rgba(245, 158, 11, 0.1); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.2);}
