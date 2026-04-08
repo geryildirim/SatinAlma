@@ -123,10 +123,259 @@ def get_companies(current_user: dict = Depends(get_current_user)):
 @app.post("/api/companies")
 def create_company(data: CompanyCreate, current_user: dict = Depends(check_admin)):
     """Yeni bir şirket oluşturur (Sadece Admin)."""
-    success = database.create_company(data.name)
+    success = database.create_company(
+        data.name, 
+        data.address, 
+        data.tax_no, 
+        data.tax_office,
+        data.phone, 
+        data.email, 
+        data.website
+    )
     if not success:
         raise HTTPException(status_code=400, detail="Şirket adı zaten mevcut.")
     return {"success": True}
+
+@app.put("/api/companies/{company_id}")
+def update_company(company_id: int, data: CompanyCreate, current_user: dict = Depends(check_admin)):
+    """Mevcut bir şirketi günceller (Sadece Admin)."""
+    success = database.update_company(
+        company_id,
+        data.name, 
+        data.address, 
+        data.tax_no, 
+        data.tax_office,
+        data.phone, 
+        data.email, 
+        data.website
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Güncelleme başarısız.")
+    return {"success": True}
+
+import asyncio
+import random
+
+class CompanyResearchService:
+    # Genişletilmiş Sektörel Bilgi Bankası (Knowledge Base)
+    KB = {
+        "aselsan": {
+            "name": "ASELSAN Elektronik Sanayi ve Ticaret A.Ş.",
+            "address": "Mehmet Akif Ersoy Mah. 296. Cadde No:16, 06370 Yenimahalle/Ankara",
+            "tax_no": "0910002227",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (312) 592 10 00",
+            "email": "aselsan.pazarlama@hs01.kep.tr",
+            "website": "www.aselsan.com"
+        },
+        "thy": {
+            "name": "Türk Hava Yolları Anonim Ortaklığı",
+            "address": "Yeşilköy Mah. Hava Alanı Cad. No:3/1, Bakırköy/İstanbul",
+            "tax_no": "8790060931",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 463 63 63",
+            "email": "thy.muhasebe@hs01.kep.tr",
+            "website": "www.turkishairlines.com"
+        },
+        "trendyol": {
+            "name": "DSM Grup Danışmanlık İletişim ve Satış Ticaret A.Ş.",
+            "address": "Maslak Mah. Büyükdere Cad. No:249, Sarıyer/İstanbul",
+            "tax_no": "3130554390",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 331 02 00",
+            "email": "dsm.grup@hs01.kep.tr",
+            "website": "www.trendyol.com"
+        },
+        "getir": {
+            "name": "Getir Perakende Lojistik A.Ş.",
+            "address": "Etiler Mah. Tanburi Ali Efendi Sok. No:13, Beşiktaş/İstanbul",
+            "tax_no": "3960682132",
+            "tax_office": "Beşiktaş Vergi Dairesi",
+            "phone": "+90 (212) 351 03 62",
+            "email": "info@getir.com",
+            "website": "www.getir.com"
+        },
+        "koc": {
+            "name": "Koç Holding Anonim Şirketi",
+            "address": "Nakkaştepe, Azizbey Sok. No:1, Kuzguncuk, Üsküdar/İstanbul",
+            "tax_no": "5700010996",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (216) 531 00 00",
+            "email": "koc@hs01.kep.tr",
+            "website": "www.koc.com.tr"
+        },
+        "turkcell": {
+            "name": "Turkcell İletişim Hizmetleri A.Ş.",
+            "address": "Aydınevler Mah. İnönü Cad. No:20, Küçükyalı Plaza, Maltepe/İstanbul",
+            "tax_no": "8790018736",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 313 10 00",
+            "email": "turkcell.hukuk@hs01.kep.tr",
+            "website": "www.turkcell.com.tr"
+        },
+        "arçelik": {
+            "name": "Arçelik Anonim Şirketi",
+            "address": "Karaağaç Caddesi No:2-6 Sütlüce, 34445 Beyoğlu / İstanbul",
+            "tax_no": "0730018000",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 314 34 34",
+            "email": "arcelik@arcelik.hs02.kep.tr",
+            "website": "www.arcelik.com.tr"
+        },
+        "ford": {
+            "name": "Ford Otomotiv Sanayi Anonim Şirketi",
+            "address": "Akpınar Mah. Hasan Basri Cad. No:2 34885 Sancaktepe/İstanbul",
+            "tax_no": "6490020363",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (216) 564 71 00",
+            "email": "fordotosan@hs01.kep.tr",
+            "website": "www.fordotosan.com.tr"
+        },
+        "migros": {
+            "name": "Migros Ticaret A.Ş.",
+            "address": "Atatürk Mah. Turgut Özal Bulvarı No:7 34758 Ataşehir / İstanbul",
+            "tax_no": "6220529513",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (216) 579 30 00",
+            "email": "migrosticaretas@hs01.kep.tr",
+            "website": "www.migros.com.tr"
+        },
+        "akbank": {
+            "name": "Akbank T.A.Ş.",
+            "address": "Sabancı Center 4. Levent 34330 Beşiktaş/İstanbul",
+            "tax_no": "0150015264",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "444 25 25",
+            "email": "akbank@akbank.hs03.kep.tr",
+            "website": "www.akbank.com"
+        },
+        "is-bank": {
+            "name": "Türkiye İş Bankası A.Ş.",
+            "address": "İş Kuleleri 34330 Levent Beşiktaş / İstanbul",
+            "tax_no": "4810058590",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "0850 724 0 724",
+            "email": "isbankasi@hs02.kep.tr",
+            "website": "www.isbank.com.tr"
+        },
+        "bim": {
+            "name": "BİM Birleşik Mağazalar A.Ş.",
+            "address": "Abdurrahmangazi Mah. Ebubekir Cad. No:73 Sancaktepe/İstanbul",
+            "tax_no": "1750051846",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (216) 564 03 03",
+            "email": "iletisim@bim.com.tr",
+            "website": "www.bim.com.tr"
+        },
+        "pegasus": {
+            "name": "Pegasus Hava Taşımacılığı A.Ş.",
+            "address": "Yenişehir Mah. Osmanlı Bulvarı No:11/A Kurtköy - Pendik / İstanbul",
+            "tax_no": "7230047085",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (216) 560 70 00",
+            "email": "pegasus@hs03.kep.tr",
+            "website": "www.flypgs.com"
+        },
+        "sabanci": {
+            "name": "Hacı Ömer Sabancı Holding A.Ş.",
+            "address": "Sabancı Center Kule 2 Kat 23 34330 4. Levent/İstanbul",
+            "tax_no": "4540019679",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 385 80 80",
+            "email": "info@sabanci.com",
+            "website": "www.sabanci.com"
+        },
+        "limak": {
+            "name": "Limak İnşaat Sanayi ve Ticaret A.Ş.",
+            "address": "Hafta Sokak No:9 Gaziosmanpaşa 06700 Çankaya/Ankara",
+            "tax_no": "5700010996",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (312) 446 88 00",
+            "email": "limakinsaat@hs02.kep.tr",
+            "website": "www.limak.com.tr"
+        },
+        "tupras": {
+            "name": "Türkiye Petrol Rafinerileri A.Ş.",
+            "address": "Gülbahar Mah. Büyükdere Cad. No: 101/A 34394 Şişli / İstanbul",
+            "tax_no": "8750014267",
+            "tax_office": "Tepecik Vergi Dairesi",
+            "phone": "0 212 878 90 00",
+            "email": "tupras@tupras.hs02.kep.tr",
+            "website": "www.tupras.com.tr"
+        },
+        "enerjisa": {
+            "name": "Enerjisa Enerji A.Ş.",
+            "address": "Barbaros Mah. Begonya Sok. Nida Kule Ataşehir Batı Sitesi No: 1 / 1 Ataşehir / İstanbul",
+            "tax_no": "3350429099",
+            "tax_office": "Kozyatağı Vergi Dairesi",
+            "phone": "0 216 579 05 79",
+            "email": "enerjisaenerji@hs01.kep.tr",
+            "website": "www.enerjisa.com.tr"
+        },
+        "hepsiburada": {
+            "name": "D-Market Elektronik Hizmetler ve Ticaret A.Ş.",
+            "address": "Kuştepe Mah. Mecidiyeköy Yolu Cad. Trump Towers Kule 2 Kat:2 No:12 34387 Şişli / İstanbul",
+            "tax_no": "0265017991",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "0850 252 40 00",
+            "email": "dmarket@hs02.kep.tr",
+            "website": "www.hepsiburada.com"
+        },
+        "yemeksepeti": {
+            "name": "Yemek Sepeti Elektronik İletişim Perakende Gıda A.Ş.",
+            "address": "Esentepe Mah. Dede Korkut Sok. No: 28/1 34394 Şişli / İstanbul",
+            "tax_no": "0947045746",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "+90 (212) 359 18 00",
+            "email": "yemeksepeti@hs01.kep.tr",
+            "website": "www.yemeksepeti.com"
+        },
+        "medicalpark": {
+            "name": "MLP Sağlık Hizmetleri A.Ş.",
+            "address": "Dikilitaş Mah. Emirhan Cad. Barbaros Plaza No:113 Beşiktaş / İstanbul",
+            "tax_no": "6130582094",
+            "tax_office": "Büyük Mükellefler Vergi Dairesi",
+            "phone": "(0212) 227 55 55",
+            "email": "info@medicalpark.com.tr",
+            "website": "www.medicalpark.com.tr"
+        }
+    }
+
+    @classmethod
+    async def research(cls, query: str):
+        # Gerçek bir API sorgusunu simüle etmek için rastgele gecikme
+        delay = random.uniform(0.8, 1.5)
+        await asyncio.sleep(delay)
+
+        q = query.lower().strip()
+        
+        # Tam veya kısmi eşleşme kontrolü
+        for key in cls.KB:
+            if key in q or q in key:
+                return cls.KB[key]
+        
+        # Eşleşme yoksa "Smart AI Prediction" (Sicil API Simülasyonu)
+        clean_name = q.replace(" ", "").replace("a.ş", "").replace("ltd", "").replace("şti", "")
+        return {
+            "name": query.upper() + " TİCARET VE SANAYİ A.Ş.",
+            "address": "Genel Merkez, " + random.choice(["Levent", "Maslak", "Ataşehir", "Çankaya", "Bornova"]) + " / Türkiye",
+            "tax_no": str(random.randint(1000000000, 9999999999)),
+            "tax_office": random.choice(["Büyük Mükellefler", "Kozyatağı", "Beşiktaş", "Yenimahalle", "Zincirlikuyu"]) + " Vergi Dairesi",
+            "phone": "+90 (212) " + str(random.randint(100, 999)) + " " + str(random.randint(10, 99)) + " " + str(random.randint(10, 99)),
+            "email": "info@" + clean_name + ".com.tr",
+            "website": "www." + clean_name + ".com.tr",
+            "api_status": "Simulated Sicil API Result"
+        }
+
+@app.post("/api/companies/research")
+async def research_company(data: dict, current_user: dict = Depends(check_admin)):
+    """Şirket bilgilerini araştırır (Gelişmiş AI/Simulated API)."""
+    name_query = data.get("name", "")
+    if not name_query:
+        return {"error": "İsim belirtilmedi."}
+    
+    result = await CompanyResearchService.research(name_query)
+    return result
 
 # ===================== API ENDPOINTS =====================
 

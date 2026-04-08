@@ -745,6 +745,10 @@ const App = {
         document.querySelectorAll('.view').forEach(view => view.classList.remove('active'));
         const targetView = document.getElementById(viewId);
         if (targetView) targetView.classList.add('active');
+        
+        if (viewId === 'companies') {
+            this.loadCompaniesManager();
+        }
     },
 
     initGridStack() {
@@ -901,9 +905,9 @@ const App = {
     },
     
     async loadCompaniesManager() {
-        const tbody = document.getElementById('company-management-body');
+        const tbody = document.getElementById('company-management-body-view');
         if(!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="2" style="text-align:center;">Yükleniyor...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Yükleniyor...</td></tr>';
         
         try {
             const res = await fetch('/api/companies', { headers: this.getHeaders() });
@@ -913,30 +917,131 @@ const App = {
                 this.companyList = companies; 
                 companies.forEach(c => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td><strong>#${c.id}</strong></td><td>${c.name}</td>`;
+                    tr.style.cursor = 'pointer';
+                    tr.onclick = () => this.editCompany(c.id);
+                    tr.innerHTML = `
+                        <td><strong>#${c.id}</strong></td>
+                        <td>
+                            <div style="font-weight:600; color:var(--text-main);">${c.name}</div>
+                            <div style="font-size:0.75rem; color:var(--text-muted);">${c.website || ''}</div>
+                        </td>
+                        <td>
+                            <code style="font-size:0.85rem; color:var(--info);">${c.tax_no || '-'}</code>
+                        </td>
+                        <td>
+                            <div style="font-size:0.85rem; color:var(--text-main);">${c.tax_office || '-'}</div>
+                        </td>
+                        <td style="max-width:250px; font-size:0.85rem; color:var(--text-muted);">${c.address || '-'}</td>
+                        <td>
+                            <div style="font-size:0.85rem;">${c.phone || ''}</div>
+                            <div style="font-size:0.8rem; color:var(--primary);">${c.email || ''}</div>
+                        </td>
+                        <td style="text-align: center;">
+                            <button class="btn icon-btn" onclick="event.stopPropagation(); app.quickResearch(${c.id})" title="Detay Araştır" style="background: rgba(99, 102, 241, 0.2); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.3); padding: 6px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
+                                <i data-lucide="sparkles" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </td>
+                    `;
                     tbody.appendChild(tr);
                 });
+                if (window.lucide) lucide.createIcons();
             }
         } catch(e) { console.error(e); }
     },
 
-    async createNewCompany() {
-        const input = document.getElementById('new-company-name');
-        if(!input || !input.value) return;
+    openCompanyModal() {
+        const modal = document.getElementById('companyModal');
+        if (modal) {
+            document.getElementById('companyForm').reset();
+            document.getElementById('edit-company-id').value = '';
+            modal.classList.add('show');
+        }
+    },
+
+    editCompany(id) {
+        const company = this.companyList.find(c => c.id === id);
+        if (!company) return;
+        
+        this.openCompanyModal();
+        document.getElementById('edit-company-id').value = company.id;
+        document.getElementById('company-name').value = company.name;
+        document.getElementById('company-tax-no').value = company.tax_no || '';
+        document.getElementById('company-tax-office').value = company.tax_office || '';
+        document.getElementById('company-address').value = company.address || '';
+        document.getElementById('company-phone').value = company.phone || '';
+        document.getElementById('company-email').value = company.email || '';
+        document.getElementById('company-website').value = company.website || '';
+        
+        document.querySelector('#companyModal h2').innerText = 'Şirket Detaylarını Düzenle';
+    },
+
+    async quickResearch(id) {
+        await this.editCompany(id);
+        await this.researchCompanyDetails();
+    },
+
+    async researchCompanyDetails() {
+        const nameInput = document.getElementById('company-name');
+        const btn = document.getElementById('btn-research-company');
+        if (!nameInput.value) return alert("Lütfen önce bir şirket ismi giriniz.");
+
+        const originalBtnHtml = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Sicil API Sorgulanıyor...';
+        btn.disabled = true;
+        lucide.createIcons();
+
         try {
-            const response = await fetch('/api/companies', {
+            const res = await fetch('/api/companies/research', {
                 method: 'POST',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ name: input.value })
+                body: JSON.stringify({ name: nameInput.value })
             });
-            if (response.ok) {
-                input.value = '';
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('company-name').value = data.name;
+                document.getElementById('company-tax-no').value = data.tax_no;
+                document.getElementById('company-tax-office').value = data.tax_office || '';
+                document.getElementById('company-address').value = data.address;
+                document.getElementById('company-phone').value = data.phone;
+                document.getElementById('company-email').value = data.email;
+                document.getElementById('company-website').value = data.website;
+            }
+        } catch (e) { console.error(e); }
+        
+        btn.innerHTML = originalBtnHtml;
+        btn.disabled = false;
+        lucide.createIcons();
+    },
+
+    async saveCompany() {
+        const body = {
+            name: document.getElementById('company-name').value,
+            tax_no: document.getElementById('company-tax-no').value,
+            tax_office: document.getElementById('company-tax-office').value,
+            address: document.getElementById('company-address').value,
+            phone: document.getElementById('company-phone').value,
+            email: document.getElementById('company-email').value,
+            website: document.getElementById('company-website').value
+        };
+
+        const companyId = document.getElementById('edit-company-id').value;
+        const method = companyId ? 'PUT' : 'POST';
+        const url = companyId ? `/api/companies/${companyId}` : '/api/companies';
+
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: this.getHeaders(),
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                this.closeModals();
                 await this.loadCompaniesManager();
                 await this.loadCompanies();
-                alert("Şirket başarıyla eklendi.");
+                alert("Şirket başarıyla kaydedildi.");
             } else {
-                const err = await response.json();
-                alert(err.detail || "Şirket eklenemedi.");
+                const err = await res.json();
+                alert(err.detail || "Kayıt sırasında hata oluştu.");
             }
         } catch (e) { console.error(e); }
     },

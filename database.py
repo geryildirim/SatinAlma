@@ -18,9 +18,22 @@ def init_db():
     c.execute('''
         CREATE TABLE IF NOT EXISTS companies (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE
+            name TEXT UNIQUE,
+            address TEXT,
+            tax_no TEXT,
+            tax_office TEXT,
+            phone TEXT,
+            email TEXT,
+            website TEXT
         )
     ''')
+    # Migrasyonlar
+    cols = ["address", "tax_no", "tax_office", "phone", "email", "website"]
+    for col in cols:
+        try:
+            c.execute(f"ALTER TABLE companies ADD COLUMN {col} TEXT")
+        except sqlite3.OperationalError:
+            pass
     c.execute("SELECT COUNT(*) FROM companies")
     if c.fetchone()[0] == 0:
         c.execute("INSERT INTO companies (name) VALUES (?)", ("Merkez Ofis",))
@@ -125,10 +138,27 @@ def get_all_companies(user_role: str = "admin", user_id: int = 0):
     conn.close()
     return rows
 
-def create_company(name: str):
+def create_company(name: str, address: str = "", tax_no: str = "", tax_office: str = "", phone: str = "", email: str = "", website: str = ""):
     conn = get_connection()
     try:
-        conn.execute("INSERT INTO companies (name) VALUES (?)", (name,))
+        conn.execute(
+            "INSERT INTO companies (name, address, tax_no, tax_office, phone, email, website) VALUES (?,?,?,?,?,?,?)",
+            (name, address, tax_no, tax_office, phone, email, website)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def update_company(company_id: int, name: str, address: str = "", tax_no: str = "", tax_office: str = "", phone: str = "", email: str = "", website: str = ""):
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE companies SET name=?, address=?, tax_no=?, tax_office=?, phone=?, email=?, website=? WHERE id=?",
+            (name, address, tax_no, tax_office, phone, email, website, company_id)
+        )
         conn.commit()
         return True
     except sqlite3.IntegrityError:

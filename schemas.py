@@ -10,9 +10,21 @@ class RequestCreate(BaseModel):
 class CompanyOut(BaseModel):
     id: int
     name: str
+    address: Optional[str] = ""
+    tax_no: Optional[str] = ""
+    tax_office: Optional[str] = ""
+    phone: Optional[str] = ""
+    email: Optional[str] = ""
+    website: Optional[str] = ""
 
 class CompanyCreate(BaseModel):
     name: str
+    address: Optional[str] = ""
+    tax_no: Optional[str] = ""
+    tax_office: Optional[str] = ""
+    phone: Optional[str] = ""
+    email: Optional[str] = ""
+    website: Optional[str] = ""
 
 class RequestUpdate(BaseModel):
     id: int
