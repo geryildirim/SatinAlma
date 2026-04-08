@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, status, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -10,6 +12,9 @@ from schemas import (
 )
 import database
 
+# Load environment variables
+load_dotenv()
+
 # Veritabanını başlat
 database.init_db()
 
@@ -20,9 +25,9 @@ app = FastAPI(
 )
 
 # --- Auth Configuration ---
-SECRET_KEY = "SatinAlma_Sistemi_Secret_Key_Change_Me"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 1 day
+SECRET_KEY = os.getenv("SECRET_KEY", "SatinAlma_Sistemi_Fallback_Security_Key_321")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60 * 24))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login", auto_error=False)
 
@@ -467,12 +472,28 @@ app.mount("/js", StaticFiles(directory="js"), name="js")
 app.mount("/icons", StaticFiles(directory="icons"), name="icons")
 
 @app.middleware("http")
-async def add_no_cache_header(request: Request, call_next):
+async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
+    
+    # Standard Security Headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https: https://ui-avatars.com; "
+        "connect-src 'self';"
+    )
+    
+    # Cache Control for Static Assets
     if request.url.path.startswith("/css") or request.url.path.startswith("/js"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+        
     return response
 
 # Ana sayfa

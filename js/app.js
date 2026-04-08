@@ -11,12 +11,22 @@ const statusMap = {
 };
 
 const App = {
-    version: '27',
+    version: '2.0.0',
     requestsData: [], 
     isEditMode: false,
     grid: null,
     user: null, // Giriş yapmış kullanıcı bilgisi
     currentCompanyId: 1,
+
+    escapeHTML(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
 
     async init() {
         try {
@@ -421,7 +431,7 @@ const App = {
 
         data.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${req.requester || 'Bilinmiyor'}</small></td><td style="font-weight: 500;">${req.amount}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.date}</td>`;
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${this.escapeHTML(req.requester || 'Bilinmiyor')}</small></td><td style="font-weight: 500;">${this.escapeHTML(req.amount)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.date)}</td>`;
             tbody.appendChild(tr);
         });
     },
@@ -440,10 +450,10 @@ const App = {
         pendingData.forEach(req => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${req.request_no}</strong></td>
-                <td>${req.description}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${req.requester || 'Bilinmiyor'}</small></td>
+                <td><strong>${this.escapeHTML(req.request_no)}</strong></td>
+                <td>${this.escapeHTML(req.description)}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${this.escapeHTML(req.requester || 'Bilinmiyor')}</small></td>
                 <td><span class="status-badge status-pending">Onay Bekliyor</span></td>
-                <td>${req.date}</td>
+                <td>${this.escapeHTML(req.date)}</td>
                 <td style="text-align: right;">
                     <button class="primary-btn" onclick="app.updateStatus(event, ${req.id}, 'approved')">Onayla</button>
                     <button class="outline-btn" onclick="app.updateStatus(event, ${req.id}, 'rejected')">Reddet</button>
@@ -511,7 +521,7 @@ const App = {
         ordersData.forEach(req => {
             const isPO = req.status === 'po';
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}</td><td>${req.amount}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td style="text-align: right;">${isPO ? '✓ Sipariş Edildi' : `<button class="primary-btn" onclick="app.openQuoteModal(${req.id}, '${req.request_no}', '${req.description.replace(/'/g, "\\'")}')">Sipariş Oluştur</button>`}</td>`;
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}</td><td>${this.escapeHTML(req.amount)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td style="text-align: right;">${isPO ? '✓ Sipariş Edildi' : `<button class="primary-btn" onclick="app.openQuoteModal(${req.id}, '${this.escapeHTML(req.request_no)}', '${this.escapeHTML(req.description.replace(/'/g, "\\'"))}')">Sipariş Oluştur</button>`}</td>`;
             tbody.appendChild(tr);
         });
         lucide.createIcons();
@@ -528,7 +538,7 @@ const App = {
         }
         receivingData.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.date}</td><td style="text-align: right;"><button class="primary-btn" onclick="app.updateStatus(event, ${req.id}, 'delivered')">Teslim Alındı</button></td>`;
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.date)}</td><td style="text-align: right;"><button class="primary-btn" onclick="app.updateStatus(event, ${req.id}, 'delivered')">Teslim Alındı</button></td>`;
             tbody.appendChild(tr);
         });
         lucide.createIcons();
@@ -545,7 +555,7 @@ const App = {
         }
         invoiceData.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${req.request_no}</strong></td><td>${req.description}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${req.amount}</td><td>${req.date}</td><td style="text-align: right;"><button class="primary-btn" onclick="app.openPaymentModal(${req.id}, '${req.request_no}', '${req.amount}')">Öde</button></td>`;
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.amount)}</td><td>${this.escapeHTML(req.date)}</td><td style="text-align: right;"><button class="primary-btn" onclick="app.openPaymentModal(${req.id}, '${this.escapeHTML(req.request_no)}', '${this.escapeHTML(req.amount)}')">Öde</button></td>`;
             tbody.appendChild(tr);
         });
         lucide.createIcons();
@@ -579,7 +589,7 @@ const App = {
                 } else {
                     stocks.forEach(item => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td><strong>${item.request_no}</strong></td><td>${item.item_name}</td><td>${item.quantity}</td><td>${item.unit}</td><td>${item.date_added}</td><td style="text-align: right;"><span class="status-badge status-delivered">Stokta</span></td>`;
+                        tr.innerHTML = `<td><strong>${this.escapeHTML(item.request_no)}</strong></td><td>${this.escapeHTML(item.item_name)}</td><td>${this.escapeHTML(item.quantity)}</td><td>${this.escapeHTML(item.unit)}</td><td>${this.escapeHTML(item.date_added)}</td><td style="text-align: right;"><span class="status-badge status-delivered">Stokta</span></td>`;
                         tbody.appendChild(tr);
                     });
                 }
