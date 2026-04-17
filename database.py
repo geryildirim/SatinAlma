@@ -255,6 +255,13 @@ def delete_request(req_id: int):
     conn.close()
     return {"success": True}
 
+def get_request_by_id(req_id: int):
+    """Herhangi bir şirketten talep getirir (company_id bağımsız)."""
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM requests WHERE id=?", (req_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 # --- Kullanıcı İşlemleri ---
 
 def get_user_by_username(username: str):

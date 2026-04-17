@@ -22,7 +22,7 @@ database.init_db()
 app = FastAPI(
     title="CorpBuy - Enterprise Purchasing & Billing API",
     description="Kurumsal Satın Alma ve Faturalandırma Sistemi REST API",
-    version="2.0.0"
+    version="2.1.0"
 )
 
 # --- Auth Configuration ---
@@ -67,6 +67,16 @@ def check_admin(user = Depends(get_current_user)):
             detail="Bu işlem için admin yetkisi gereklidir"
         )
     return user
+
+def verify_company_access(company_id: int, user: dict):
+    if user["role"] == "admin":
+        return
+    companies = database.get_all_companies(user["role"], user["id"])
+    if not any(c["id"] == company_id for c in companies):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bu şirket üzerinde işlem yapma yetkiniz yok"
+        )
 
 # ===================== AUTH ENDPOINTS =====================
 
@@ -410,11 +420,13 @@ async def research_company(data: dict, current_user: dict = Depends(check_admin)
 @app.get("/api/requests")
 def list_requests(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Tüm satın alma taleplerini listeler."""
+    verify_company_access(company_id, current_user)
     return database.get_all_requests(company_id)
 
 @app.get("/api/stats")
 def get_stats(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Dashboard istatistiklerini döner."""
+    verify_company_access(company_id, current_user)
     return database.get_stats(company_id)
 
 @app.get("/api/settings")
@@ -431,6 +443,7 @@ def update_user_settings(settings: Dict[str, str], current_user: dict = Depends(
 @app.post("/api/requests")
 def create_request(data: RequestCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
     """Yeni bir satın alma talebi oluşturur."""
+    verify_company_access(data.company_id, current_user)
     result = database.create_request(data.description, data.amount, data.requester, data.company_id)
     if "request_no" in result:
         sys_settings = database.get_settings()
@@ -447,15 +460,10 @@ def create_request(data: RequestCreate, background_tasks: BackgroundTasks, curre
 @app.post("/api/requests/update")
 def update_request(data: RequestUpdate, background_tasks: BackgroundTasks, current_user: dict = Depends(check_admin)):
     """Mevcut bir talebin durumunu günceller. (Sadece Admin)"""
-    # Mevcut talebin açıklamasını almak için:
-    reqs = database.get_all_requests()
-    description = ""
-    req_no = ""
-    for r in reqs:
-        if r['id'] == data.id:
-            description = r['description']
-            req_no = r['request_no']
-            break
+    # Tüm şirketlerdeki talepleri ara (company_id bağımsız lookup)
+    req_info = database.get_request_by_id(data.id)
+    description = req_info['description'] if req_info else ""
+    req_no = req_info['request_no'] if req_info else ""
 
     result = database.update_request(
         req_id=data.id,
@@ -493,11 +501,13 @@ def delete_request(req_id: int, current_user: dict = Depends(check_admin)):
 @app.get("/api/stock", response_model=List[StockOut])
 def get_stock(company_id: int = 1, current_user: dict = Depends(get_current_user)):
     """Tüm stok verilerini döndürür."""
+    verify_company_access(company_id, current_user)
     return database.get_all_stocks(company_id)
 
 @app.post("/api/stock/manual")
 def add_manual_stock(data: StockManualCreate, current_user: dict = Depends(get_current_user)):
     """Sisteme manuel stok girişi yapar."""
+    verify_company_access(data.company_id, current_user)
     return database.add_manual_stock(
         item_name=data.item_name,
         quantity=data.quantity,

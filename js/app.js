@@ -11,7 +11,7 @@ const statusMap = {
 };
 
 const App = {
-    version: '2.0.0',
+    version: '2.1.0',
     requestsData: [], 
     isEditMode: false,
     grid: null,
@@ -425,16 +425,21 @@ const App = {
         let data = this.requestsData;
         if(filter !== 'all') data = this.requestsData.filter(r => r.status === filter);
 
+        const isAdmin = this.user && this.user.role === 'admin';
+        const colspan = isAdmin ? 6 : 5;
+
         if(data.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding: 48px 0;">Talep kaydı bulunmuyor.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align:center; color:#94a3b8; padding: 48px 0;">Talep kaydı bulunmuyor.</td></tr>`;
             return;
         }
 
         data.forEach(req => {
             const tr = document.createElement('tr');
-            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${this.escapeHTML(req.requester || 'Bilinmiyor')}</small></td><td style="font-weight: 500;">${this.escapeHTML(req.amount)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.date)}</td>`;
+            const actionCell = isAdmin ? `<td style="text-align:right;"><button class="outline-btn" onclick="app.deleteRequest(${req.id})" title="Sil"><i data-lucide="trash-2" style="width:14px;color:#ef4444;"></i></button></td>` : '<td></td>';
+            tr.innerHTML = `<td><strong>${this.escapeHTML(req.request_no)}</strong></td><td>${this.escapeHTML(req.description)}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${this.escapeHTML(req.requester || 'Bilinmiyor')}</small></td><td style="font-weight: 500;">${this.escapeHTML(req.amount)}</td><td><span class="status-badge ${statusMap[req.status].class}">${statusMap[req.status].label}</span></td><td>${this.escapeHTML(req.date)}</td>${actionCell}`;
             tbody.appendChild(tr);
         });
+        lucide.createIcons();
     },
 
     renderApprovalsPage() {
@@ -453,7 +458,7 @@ const App = {
             tr.innerHTML = `
                 <td><strong>${this.escapeHTML(req.request_no)}</strong></td>
                 <td>${this.escapeHTML(req.description)}<br><small style="color:var(--text-muted); display:flex; align-items:center; gap:4px; margin-top:4px;"><i data-lucide="user" style="width:12px"></i> ${this.escapeHTML(req.requester || 'Bilinmiyor')}</small></td>
-                <td><span class="status-badge status-pending">Onay Bekliyor</span></td>
+                <td style="font-weight:500;">${this.escapeHTML(req.amount)}</td>
                 <td>${this.escapeHTML(req.date)}</td>
                 <td style="text-align: right;">
                     <button class="primary-btn" onclick="app.updateStatus(event, ${req.id}, 'approved')">Onayla</button>
@@ -488,6 +493,7 @@ const App = {
 
     renderProgressBars() {
         const total = this.requestsData.length || 1;
+        const realTotal = this.requestsData.length;
         const counts = { 'pending': 0, 'approved': 0, 'po': 0, 'delivered': 0, 'paid': 0, 'rejected': 0 };
         this.requestsData.forEach(req => { if(counts[req.status] !== undefined) counts[req.status]++; });
         const colors = { 'pending': '#f59e0b', 'approved': '#10b981', 'po': '#3b82f6', 'delivered': '#8b5cf6', 'paid': '#ec4899', 'rejected': '#ef4444' };
@@ -503,11 +509,14 @@ const App = {
                 legendHtml += `<div class="legend-item"><span class="dot" style="background:${colors[status]}"></span><span class="label">${statusMap[status].label}</span><span class="val">${Math.round(percent)}%</span></div>`;
             }
         });
-        gradientString = gradientString.slice(0, -2);
+        gradientString = gradientString.slice(0, -2) || 'rgba(255,255,255,0.05) 0% 100%';
         const circle = document.getElementById('pie-chart');
         if(circle) circle.style.background = `conic-gradient(${gradientString})`;
         const legend = document.getElementById('pie-legend');
         if(legend) legend.innerHTML = legendHtml;
+        // Update center total text
+        const totalText = document.getElementById('pie-total-text');
+        if(totalText) totalText.innerText = realTotal;
     },
 
     renderOrdersPage() {
@@ -933,12 +942,22 @@ const App = {
     },
 
     async saveManualStock() {
+        const itemName = document.getElementById('manual-stock-name').value;
+        const quantityVal = document.getElementById('manual-stock-quantity').value;
+        const unit = document.getElementById('manual-stock-unit').value;
+        const supplier = document.getElementById('manual-stock-supplier').value;
+        
+        if (!itemName || !quantityVal || !unit) {
+            this.showNotification('Lütfen tüm alanları doldurun.', 'error');
+            return;
+        }
+
         const data = {
-            item_name: document.getElementById('manual-stock-name').value,
-            quantity: parseInt(document.getElementById('manual-stock-quantity').value),
-            unit: document.getElementById('manual-stock-unit').value,
-            supplier: document.getElementById('manual-stock-supplier').value,
-            company_id: parseInt(localStorage.getItem('corpbuy_company_id') || '1')
+            item_name: itemName,
+            quantity: parseInt(quantityVal),
+            unit: unit,
+            supplier: supplier,
+            company_id: this.currentCompanyId  // Use the actual current company ID
         };
         
         try {
@@ -951,8 +970,8 @@ const App = {
             if (res.ok) {
                 this.showNotification('Mal girişi başarıyla yapıldı.', 'success');
                 this.closeModals();
-                this.renderStockPage(); // Refresh stocks
-                this.renderReceivingPage(); // Refresh receiving if needed
+                await this.renderStocksPage(); // Fix: was incorrectly 'renderStockPage'
+                this.renderReceivingPage();
             } else {
                 this.showNotification('Hata oluştu.', 'error');
             }
@@ -1131,6 +1150,59 @@ const App = {
 
     closeModals() {
         document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+    },
+
+    // --- Missing utility functions ---
+
+    navigateTo(viewId) {
+        // Close any open dropdowns
+        const dropdown = document.getElementById('notificationsDropdown');
+        if (dropdown) dropdown.classList.remove('show');
+        this.switchView(viewId);
+    },
+
+    clearNotifications() {
+        const dropdown = document.getElementById('notificationsDropdown');
+        const items = dropdown ? dropdown.querySelectorAll('.notification-item') : [];
+        items.forEach(item => item.style.display = 'none');
+        const badge = dropdown ? dropdown.querySelector('.badge') : null;
+        if (badge) badge.textContent = '0 Yeni';
+        const dot = document.querySelector('.notification-dot');
+        if (dot) dot.style.display = 'none';
+        if (dropdown) dropdown.classList.remove('show');
+    },
+
+    showNotification(message, type = 'success') {
+        // Remove any existing toast
+        const existing = document.getElementById('toast-notification');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        const bgColor = type === 'success' ? 'var(--success)' : type === 'error' ? '#ef4444' : 'var(--info)';
+        const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info';
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: ${bgColor};
+            color: white;
+            padding: 14px 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            z-index: 99999;
+            animation: slideInRight 0.3s ease;
+            max-width: 360px;
+        `;
+        toast.innerHTML = `<i data-lucide="${icon}" style="width:18px;height:18px;flex-shrink:0;"></i><span>${message}</span>`;
+        document.body.appendChild(toast);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3500);
     },
 
     switchSettingsTab(tabId) {
